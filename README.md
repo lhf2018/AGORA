@@ -6,14 +6,17 @@
 
 ## 功能
 
-- **260+ 信息源**，覆盖 **40+** 国家/地区
-- **认知 / 财报专栏 / 收藏** 三视图
+- **290+ 信息源**，覆盖 **40+** 国家/地区（含能源气候、AI 政策、对华观察、台海等补强源）
+- **认知 / 今日简报 / 财报专栏 / 收藏 / 源管理** 多视图
   - **认知**：主信息流，按领域 × 文体 × 国家 × 议题 × 时间筛选
+  - **今日简报**：按领域挑选近 1–3 日要点；可复制 Markdown、打开分享页
   - **财报专栏**：按日议程，识别公司名，支持公司过滤
   - **收藏**：稍后读 / 已读 / 未读（浏览器 localStorage，无需账号）
+  - **源管理**：网页增删改自定义源、试抓、启停内置源
 - **文体**：智库、财报、研报、白皮书、政策文件、科学论文、数据发布、公司公告、媒体
 - **领域**：地缘、产业、宏观金融、科技、能源气候、卫生健康、综合
-- **同题合并**：相似标题聚类，展示「同题 N」
+- **同题合并与时间线**：相似标题聚类；点「同题 N · 时间线」按发布时间看各方表述演变
+- **卡片摘要 / 阅读模式**：展示 RSS 导语；点「展开」打开细读面板（摘要最长约 1000 字；多数源 RSS 本身仅为导语）
 - **SQLite 持久化**：`data/aggregator.db`，重启秒开；历史约保留 30 天
 - **增量抓取**：高优源约 10 分钟、普通源约 30 分钟；失败/噪音源自动降权
 - **标题搜索**、议题词云、源健康度面板
@@ -50,22 +53,26 @@ python app.py
 | 视图 | 说明 |
 |------|------|
 | 认知 | 浏览全部内容；可用时间 / 领域 / 文体 / 国家 / 议题筛选 |
+| 今日简报 | 近 24h–3 日要点；分享页与 Markdown 导出 |
 | 财报专栏 | 财报相关内容按日期排列，可点公司 chip 过滤 |
 | 收藏 | 查看「稍后」「已读」「未读」；在认知或专栏里点按钮打标 |
+| 源管理 | 管理自定义源与内置源覆盖 |
 
-卡片上可标记 **稍后 / 已读**；打开原文会记为已读。
+卡片上可标记 **稍后 / 已读**；打开原文会记为已读。有摘要时点 **展开** 打开细读面板；同题条目可展开时间线。
 
 ## 项目结构
 
 ```
 Think-Tank-Aggregation/
-├── app.py              # Flask：抓取、调度、API
+├── app.py              # Flask：抓取、调度、API、简报
 ├── db.py               # SQLite
 ├── config.py           # 主源配置 + 文体/领域映射
-├── sources_extra.py    # 补充源（财报/政策/论文等）
+├── sources_extra.py    # 补充源（财报/政策/论文/扩展智库等）
 ├── quality.py          # 噪音过滤、同题聚类、降权
 ├── earnings.py         # 公司识别与财报日历
-├── templates/index.html
+├── templates/
+│   ├── index.html
+│   └── briefing_share.html
 ├── data/               # aggregator.db（运行后生成，已 gitignore）
 ├── scripts/
 │   ├── init_db.py
@@ -96,7 +103,7 @@ Think-Tank-Aggregation/
 
 未写 `doc_type` / `domain` 时，由 `config.py` 的 `get_doc_type` / `get_domain` 按 category、名称等推断。
 
-无官方 RSS 时，可用 `sources_extra.py` / `config.py` 中的 Google News 查询模板。
+无官方 RSS 时，可用 `sources_extra.py` / `config.py` 中的 Google News 查询模板。也可在网页 **源管理** 中新增自定义源。
 
 ## API
 
@@ -105,11 +112,15 @@ Think-Tank-Aggregation/
 | `GET /api/articles` | 文章列表（筛选见下） |
 | `GET /api/articles/status` | 库是否就绪 / 是否在抓取 |
 | `GET /api/earnings/calendar` | 财报按日议程 |
+| `GET /api/briefing` | 今日简报 JSON |
+| `GET /api/briefing.md` | 简报 Markdown（`download=1` 附件下载） |
+| `GET /share/briefing` | 简报分享页 |
 | `GET /api/topics` | 近 N 日议题 |
 | `GET /api/feeds/health` | 源健康度 |
 | `GET /api/sources` | 全部源配置 |
 | `GET /api/stats` | 统计（含文体/领域） |
 | `POST /api/fetch/trigger` | 触发增量抓取 |
+| `GET/POST/PUT/DELETE /api/admin/sources…` | 源管理 |
 
 ### `GET /api/articles` 主要参数
 
@@ -131,6 +142,12 @@ Think-Tank-Aggregation/
 | `days` | 时间窗，默认 `30` |
 | `company` | 公司名或 id，可选 |
 
+### `GET /api/briefing` / `briefing.md`
+
+| 参数 | 说明 |
+|------|------|
+| `days` | `1` / `2` / `3`，默认 `1` |
+
 ## 技术栈
 
 | 层级 | 技术 |
@@ -147,8 +164,11 @@ Think-Tank-Aggregation/
 **部分源无文章？**  
 RSS 失效、限流或 Google News 不可达时会跳过该源，不影响其他源。可在源状态面板查看。
 
+**展开后仍有省略号？**  
+细读显示的是入库的 RSS 导语。多数媒体 RSS 本身只给短摘要并以 `...` 收尾；完整正文需点「原文」。新抓取摘要最长约 1000 字，旧条目需该源再抓一次才会更新。
+
 **如何强制刷新？**  
-`POST /api/fetch/trigger`，或等定时增量。
+`POST /api/fetch/trigger`，或等定时增量；源管理里可对单源点「抓取」。
 
 **国内 Google News 不稳定？**  
 尽量改官方 RSS，或使用 `GNEWS_CN` 模板。

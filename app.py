@@ -149,8 +149,8 @@ def clean_gnews_title(title, feed_url=''):
     return cleaned or title
 
 
-def clean_summary(raw, max_len=320):
-    """Strip HTML from RSS summary/description for card display."""
+def clean_summary(raw, max_len=1000):
+    """Strip HTML from RSS summary/description for card + reading mode."""
     if not raw:
         return ''
     text = _TAG_RE.sub(' ', str(raw))
@@ -658,11 +658,13 @@ def build_briefing(days=1):
                 'source_cn': it.get('source_cn'),
                 'icon': it.get('icon') or '',
                 'published': it.get('published'),
+                'published_timestamp': it.get('published_timestamp'),
                 'description': it.get('description') or '',
                 'source_type_label': it.get('source_type_label') or '',
                 'domain_label': it.get('domain_label') or '',
                 'country': it.get('country') or '',
                 'cluster_size': it.get('cluster_size') or 1,
+                'related': it.get('related') or [],
                 'priority': it.get('priority', 2),
             })
             if len(picked) >= spec['limit']:

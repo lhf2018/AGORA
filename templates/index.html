@@ -124,6 +124,95 @@
             -webkit-line-clamp: unset;
             overflow: visible;
         }
+        body.read-mode .article-summary:not(.expanded) {
+            -webkit-line-clamp: 5;
+        }
+        body.read-mode .article-summary {
+            font-size: 0.8125rem;
+            line-height: 1.65;
+            color: #b7b0a2;
+        }
+        body.read-mode #articlesContainer article.group {
+            padding: 1.15rem 1.25rem;
+        }
+        .cluster-timeline {
+            position: relative;
+            margin-top: 0.65rem;
+            padding-left: 0.85rem;
+            border-left: 1px solid rgba(198, 161, 91, 0.28);
+        }
+        .cluster-timeline-item {
+            position: relative;
+            padding: 0.55rem 0 0.55rem 0.85rem;
+        }
+        .cluster-timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -0.85rem;
+            top: 0.9rem;
+            width: 0.45rem;
+            height: 0.45rem;
+            border-radius: 999px;
+            background: #c6a15b;
+            box-shadow: 0 0 0 3px rgba(198, 161, 91, 0.18);
+            transform: translateX(-50%);
+        }
+        .cluster-timeline-item.is-primary::before {
+            background: #f4f1ea;
+            box-shadow: 0 0 0 3px rgba(198, 161, 91, 0.35);
+        }
+        .article-summary[data-reader] {
+            cursor: pointer;
+        }
+        .article-summary[data-reader]:hover {
+            color: #b7b0a2;
+        }
+        .reader-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 80;
+            display: flex;
+            justify-content: flex-end;
+        }
+        .reader-overlay.hidden { display: none; }
+        .reader-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(7, 8, 10, 0.62);
+            backdrop-filter: blur(2px);
+        }
+        .reader-panel {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            width: min(34rem, 100%);
+            height: 100%;
+            background:
+                linear-gradient(180deg, rgba(198,161,91,0.06), transparent 28%),
+                #0c0e12;
+            border-left: 1px solid rgba(255,255,255,0.1);
+            box-shadow: -24px 0 60px rgba(0,0,0,0.45);
+            animation: readerIn 0.22s ease both;
+        }
+        @keyframes readerIn {
+            from { transform: translateX(18px); opacity: 0.6; }
+            to { transform: none; opacity: 1; }
+        }
+        .reader-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1.25rem 1.35rem 2rem;
+        }
+        .reader-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            padding: 0.85rem 1.25rem;
+            background: rgba(20, 23, 29, 0.92);
+        }
+        body.reader-open { overflow: hidden; }
         .admin-input {
             width: 100%;
             border-radius: 0.75rem;
@@ -282,8 +371,11 @@
             </div>
         </section>
 
-        <div class="mb-3 flex items-center justify-between">
+        <div class="mb-3 flex items-center justify-between gap-3">
             <div id="resultInfo" class="font-display text-[11px] tracking-[0.12em] text-mist-500"></div>
+            <button type="button" id="readModeToggle" aria-pressed="false"
+                    class="shrink-0 rounded-full border border-white/10 px-3 py-1.5 text-[11px] text-mist-400 transition hover:border-brass/40 hover:text-brass"
+                    title="开启后卡片显示更长摘要；点「展开」打开细读">阅读模式</button>
         </div>
 
         <div id="articlesContainer">
@@ -407,6 +499,31 @@
     </div>
 </div>
 
+<!-- Reading panel -->
+<div id="readerOverlay" class="reader-overlay hidden" aria-hidden="true">
+    <div class="reader-backdrop" data-close-reader tabindex="-1"></div>
+    <aside id="readerPanel" class="reader-panel" role="dialog" aria-modal="true" aria-labelledby="readerTitle">
+        <div class="flex items-start justify-between gap-3 border-b border-white/8 px-5 py-4">
+            <div class="min-w-0">
+                <div class="font-display text-[11px] uppercase tracking-[0.16em] text-brass">细读</div>
+                <div id="readerMeta" class="mt-1.5 flex flex-wrap gap-1.5 text-[11px] text-mist-500"></div>
+            </div>
+            <button type="button" id="readerClose" class="rounded-lg border border-white/10 px-2.5 py-1 text-xs text-mist-400 hover:border-white/25 hover:text-mist-100" aria-label="关闭">关闭</button>
+        </div>
+        <div class="reader-scroll">
+            <h2 id="readerTitle" class="text-lg font-semibold leading-snug tracking-tight text-mist-50"></h2>
+            <p id="readerSummary" class="mt-4 text-sm leading-relaxed text-mist-300 whitespace-pre-wrap"></p>
+            <div id="readerEmpty" class="mt-4 hidden rounded-xl border border-dashed border-white/10 px-4 py-6 text-center text-xs text-mist-500">此条目暂无 RSS 摘要，可打开原文阅读。</div>
+            <div id="readerRelated" class="mt-6 hidden"></div>
+        </div>
+        <div class="reader-actions">
+            <button type="button" id="readerLater" class="rounded-md border border-white/10 px-3 py-1.5 text-xs text-mist-300 hover:border-white/25">稍后</button>
+            <button type="button" id="readerRead" class="rounded-md border border-white/10 px-3 py-1.5 text-xs text-mist-300 hover:border-white/25">已读</button>
+            <a id="readerOpen" href="#" target="_blank" rel="noopener noreferrer" class="rounded-md bg-brass px-3 py-1.5 text-xs font-semibold text-ink-950 hover:brightness-105">打开原文</a>
+        </div>
+    </aside>
+</div>
+
 <script>
     const PER_PAGE = 24;
     const PRIORITY_COUNTRIES = ['中国', '美国', '国际', '英国', '德国', '法国', '日本', '韩国', '印度', '欧盟'];
@@ -433,6 +550,9 @@
     let briefDays = '1';
     let adminEditing = null; // name when editing, null when creating
     let adminLabels = { doc_type_labels: {}, domain_labels: {} };
+    let lastFeedArticles = [];
+    let readerArticle = null;
+    let readMode = localStorage.getItem('agora.readMode') === '1';
 
     const STORE_KEY = 'agora.reading.v1';
     const container = document.getElementById('articlesContainer');
@@ -442,6 +562,16 @@
     const domainCountSpan = document.getElementById('domainCount');
     const updateTimeSpan = document.getElementById('updateTime');
     const resultInfo = document.getElementById('resultInfo');
+    const readModeToggle = document.getElementById('readModeToggle');
+    const readerOverlay = document.getElementById('readerOverlay');
+    const readerTitle = document.getElementById('readerTitle');
+    const readerMeta = document.getElementById('readerMeta');
+    const readerSummary = document.getElementById('readerSummary');
+    const readerEmpty = document.getElementById('readerEmpty');
+    const readerRelated = document.getElementById('readerRelated');
+    const readerLater = document.getElementById('readerLater');
+    const readerRead = document.getElementById('readerRead');
+    const readerOpen = document.getElementById('readerOpen');
     const countrySelect = document.getElementById('countrySelect');
     const resetBtn = document.getElementById('resetFilters');
     const searchInput = document.getElementById('searchInput');
@@ -582,6 +712,7 @@
             bindReset();
             bindSearch();
             bindHealth();
+            bindReadMode();
             bindBriefing();
             bindAdmin();
             updateActiveSummary();
@@ -942,7 +1073,244 @@
             : 'rounded-md border border-white/10 bg-transparent px-2 py-1 text-[11px] text-mist-400 hover:border-white/20 hover:text-mist-100';
     }
 
+    function applyReadModeChrome() {
+        document.body.classList.toggle('read-mode', readMode);
+        if (!readModeToggle) return;
+        readModeToggle.setAttribute('aria-pressed', readMode ? 'true' : 'false');
+        readModeToggle.classList.toggle('border-brass/50', readMode);
+        readModeToggle.classList.toggle('bg-brass/15', readMode);
+        readModeToggle.classList.toggle('text-brass', readMode);
+        readModeToggle.textContent = readMode ? '阅读模式 · 开' : '阅读模式';
+    }
+
+    function bindReadMode() {
+        applyReadModeChrome();
+        if (readModeToggle) {
+            readModeToggle.addEventListener('click', () => {
+                readMode = !readMode;
+                localStorage.setItem('agora.readMode', readMode ? '1' : '0');
+                applyReadModeChrome();
+                if (lastFeedArticles.length && (currentView === 'timeline' || currentView === 'library')) {
+                    renderArticles(lastFeedArticles);
+                }
+            });
+        }
+        document.getElementById('readerClose')?.addEventListener('click', closeReader);
+        readerOverlay?.querySelectorAll('[data-close-reader]').forEach(el => {
+            el.addEventListener('click', closeReader);
+        });
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape' && readerOverlay && !readerOverlay.classList.contains('hidden')) {
+                closeReader();
+            }
+        });
+        readerLater?.addEventListener('click', () => {
+            if (!readerArticle?.link) return;
+            toggleLater(readerArticle.link);
+            syncReaderActions();
+            if (currentView === 'library') loadArticles(currentPage);
+            else if (lastFeedArticles.length) renderArticles(lastFeedArticles);
+        });
+        readerRead?.addEventListener('click', () => {
+            if (!readerArticle?.link) return;
+            markRead(readerArticle.link, !isRead(readerArticle.link));
+            syncReaderActions();
+            if (currentView === 'library') loadArticles(currentPage);
+            else if (lastFeedArticles.length) renderArticles(lastFeedArticles);
+        });
+        readerOpen?.addEventListener('click', () => {
+            if (readerArticle?.link) markRead(readerArticle.link, true);
+        });
+    }
+
+    function syncReaderActions() {
+        if (!readerArticle) return;
+        const link = readerArticle.link || '';
+        readerLater.className = actionBtn(isLater(link));
+        readerLater.textContent = '稍后';
+        readerRead.className = actionBtn(isRead(link));
+        readerRead.textContent = '已读';
+    }
+
+    function openReader(article) {
+        if (!article || !readerOverlay) return;
+        readerArticle = article;
+        const link = article.link || '';
+        readerTitle.textContent = article.title || '无标题';
+        const chips = [
+            article.source_cn || article.source,
+            article.source_type_label,
+            article.domain_label || article.country,
+            article.published,
+            article.company,
+        ].filter(Boolean);
+        readerMeta.innerHTML = chips.map(c =>
+            `<span class="rounded-full border border-white/10 px-2 py-0.5">${escapeHtml(c)}</span>`
+        ).join('');
+        const desc = (article.description || '').trim();
+        if (desc) {
+            readerSummary.textContent = desc;
+            readerSummary.classList.remove('hidden');
+            readerEmpty.classList.add('hidden');
+        } else {
+            readerSummary.textContent = '';
+            readerSummary.classList.add('hidden');
+            readerEmpty.classList.remove('hidden');
+        }
+        const timeline = buildClusterTimeline(article);
+        if (timeline.length > 1) {
+            readerRelated.classList.remove('hidden');
+            readerRelated.innerHTML = `
+                <div class="mb-2 flex items-baseline justify-between gap-2">
+                    <div class="font-display text-[11px] uppercase tracking-[0.14em] text-mist-500">同题时间线</div>
+                    <div class="text-[11px] text-mist-500">${timeline.length} 家来源 · 按时间</div>
+                </div>
+                <div class="cluster-timeline">${timeline.map(renderTimelineItem).join('')}</div>`;
+            readerRelated.querySelectorAll('[data-reader-open]').forEach(a => {
+                a.addEventListener('click', () => markRead(a.dataset.readerOpen, true));
+            });
+        } else {
+            readerRelated.classList.add('hidden');
+            readerRelated.innerHTML = '';
+        }
+        readerOpen.href = link || '#';
+        syncReaderActions();
+        readerOverlay.classList.remove('hidden');
+        readerOverlay.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('reader-open');
+        document.getElementById('readerClose')?.focus();
+    }
+
+    function closeReader() {
+        if (!readerOverlay) return;
+        readerOverlay.classList.add('hidden');
+        readerOverlay.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('reader-open');
+        readerArticle = null;
+    }
+
+    function clusterTimeMs(item) {
+        const ts = item?.published_timestamp;
+        if (ts) {
+            const ms = Date.parse(ts);
+            if (!Number.isNaN(ms)) return ms;
+        }
+        const pub = item?.published;
+        if (pub) {
+            const ms = Date.parse(pub);
+            if (!Number.isNaN(ms)) return ms;
+        }
+        return Number.POSITIVE_INFINITY;
+    }
+
+    function buildClusterTimeline(article) {
+        const primaryLink = article.link || '';
+        const items = [
+            {
+                title: article.title,
+                link: primaryLink,
+                source: article.source,
+                source_cn: article.source_cn,
+                published: article.published,
+                published_timestamp: article.published_timestamp,
+                description: article.description || '',
+                country: article.country,
+                is_primary: true,
+            },
+            ...((article.related || []).map(r => ({ ...r, is_primary: false }))),
+        ];
+        items.sort((a, b) => {
+            const da = clusterTimeMs(a);
+            const db = clusterTimeMs(b);
+            if (da !== db) return da - db;
+            return String(a.title || '').localeCompare(String(b.title || ''), 'zh');
+        });
+        return items;
+    }
+
+    function formatTimelineWhen(item) {
+        const ts = item.published_timestamp;
+        if (ts) {
+            const d = new Date(ts);
+            if (!Number.isNaN(d.getTime())) {
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const dd = String(d.getDate()).padStart(2, '0');
+                const hh = String(d.getHours()).padStart(2, '0');
+                const mi = String(d.getMinutes()).padStart(2, '0');
+                return `${mm}-${dd} ${hh}:${mi}`;
+            }
+        }
+        return item.published || '时间未知';
+    }
+
+    function renderTimelineItem(item) {
+        const desc = (item.description || '').trim();
+        const src = item.source_cn || item.source || '';
+        return `
+            <div class="cluster-timeline-item ${item.is_primary ? 'is-primary' : ''}">
+                <div class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[11px] text-mist-500">
+                    <time class="font-medium text-brass/90">${escapeHtml(formatTimelineWhen(item))}</time>
+                    <span>${escapeHtml(src)}</span>
+                    ${item.is_primary ? '<span class="rounded-full border border-brass/35 px-1.5 py-px text-[10px] text-brass">本卡</span>' : ''}
+                    ${item.country ? `<span>${escapeHtml(item.country)}</span>` : ''}
+                </div>
+                <a class="mt-1 block text-sm leading-snug text-mist-100 hover:text-brass" href="${escapeHtml(item.link || '')}" target="_blank" rel="noopener noreferrer" data-reader-open="${escapeHtml(item.link || '')}" data-open-link="${escapeHtml(item.link || '')}">${escapeHtml(item.title || '')}</a>
+                ${desc ? `<p class="mt-1 text-xs leading-relaxed text-mist-500">${escapeHtml(desc.length > 220 ? desc.slice(0, 220) + '…' : desc)}</p>` : ''}
+            </div>`;
+    }
+
+    function clusterTimelineHtml(article, panelId) {
+        const timeline = buildClusterTimeline(article);
+        if (timeline.length <= 1) return '';
+        return `
+            <div class="mt-3">
+                <button type="button" class="cluster-toggle text-[11px] text-brass/90 hover:text-brass" data-target="${panelId}" aria-expanded="false">同题 ${timeline.length} · 时间线 ▾</button>
+                <div id="${panelId}" class="mt-1 hidden">
+                    <div class="mb-1 text-[10px] tracking-wide text-mist-500">按发布时间排列，观察各方表述演变</div>
+                    <div class="cluster-timeline">${timeline.map(renderTimelineItem).join('')}</div>
+                </div>
+            </div>`;
+    }
+
+    function summaryBlock(description, readerIdx, extraClass = '') {
+        const desc = (description || '').trim();
+        if (!desc) return '';
+        const idxAttr = readerIdx != null ? ` data-reader="${readerIdx}"` : '';
+        const sumClass = `article-summary mt-2 text-xs leading-relaxed text-mist-400 line-clamp-2 ${extraClass}`.trim();
+        const btnClass = `mt-1 text-[11px] text-brass/80 hover:text-brass ${extraClass}`.trim();
+        return `
+            <p class="${sumClass}"${idxAttr} data-summary>${escapeHtml(desc)}</p>
+            <button type="button" class="${btnClass}"${idxAttr}>展开</button>`;
+    }
+
+    function bindReaderTriggers(root, articles) {
+        root.querySelectorAll('[data-reader]').forEach(el => {
+            el.addEventListener('click', e => {
+                e.preventDefault();
+                e.stopPropagation();
+                const idx = parseInt(el.dataset.reader, 10);
+                if (!Number.isNaN(idx) && articles[idx]) openReader(articles[idx]);
+            });
+        });
+    }
+
+    function bindClusterToggles(root) {
+        root.querySelectorAll('.cluster-toggle').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const panel = document.getElementById(btn.dataset.target);
+                if (!panel) return;
+                const willOpen = panel.classList.contains('hidden');
+                panel.classList.toggle('hidden', !willOpen);
+                btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+                btn.textContent = willOpen
+                    ? btn.textContent.replace('▾', '▴')
+                    : btn.textContent.replace('▴', '▾');
+            });
+        });
+    }
+
     function renderArticles(articles) {
+        lastFeedArticles = articles || [];
         if (!articles.length) {
             container.innerHTML = `<div class="py-20 text-center text-sm text-mist-500">无结果</div>`;
             paginationEl.style.display = 'none';
@@ -950,26 +1318,9 @@
         }
         let html = '<div class="space-y-2.5">';
         articles.forEach((article, i) => {
-            const related = article.related || [];
-            const clusterSize = article.cluster_size || (1 + related.length);
             const link = article.link || '';
             const read = isRead(link);
             const later = isLater(link);
-            let clusterHtml = '';
-            if (clusterSize > 1) {
-                const rid = `rel-${i}`;
-                clusterHtml = `
-                    <div class="mt-3">
-                        <button type="button" class="cluster-toggle text-[11px] text-brass/90 hover:text-brass" data-target="${rid}">同题 ${clusterSize} ▾</button>
-                        <div id="${rid}" class="mt-2 hidden space-y-1.5 border-l border-white/10 pl-3">
-                            ${related.map(r => `
-                                <div class="flex flex-wrap items-baseline gap-2 text-xs">
-                                    <a class="text-mist-200 hover:text-brass" href="${escapeHtml(r.link)}" target="_blank" rel="noopener noreferrer" data-open-link="${escapeHtml(r.link)}">${escapeHtml(r.title)}</a>
-                                    <span class="text-mist-500">${escapeHtml(r.source_cn || r.source || '')}</span>
-                                </div>`).join('')}
-                        </div>
-                    </div>`;
-            }
             html += `
                 <article class="group animate-fade-up rounded-2xl border border-white/8 bg-ink-800/50 p-4 transition hover:border-brass/30 hover:bg-ink-800/80 hover:shadow-lift ${read ? 'opacity-50' : ''} ${later ? 'ring-1 ring-brass/25' : ''}" style="animation-delay:${Math.min(i * 0.03, 0.3)}s" data-link="${escapeHtml(link)}">
                     <div class="mb-2.5 flex flex-wrap items-center gap-2">
@@ -981,11 +1332,8 @@
                     <h2 class="text-[0.95rem] font-semibold leading-snug tracking-tight">
                         <a class="text-mist-50 transition hover:text-brass" href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer" data-open-link="${escapeHtml(link)}">${escapeHtml(article.title)}</a>
                     </h2>
-                    ${article.description ? `
-                    <p class="article-summary mt-2 text-xs leading-relaxed text-mist-400 line-clamp-2" data-summary>${escapeHtml(article.description)}</p>
-                    ${article.description.length > 120 ? `<button type="button" class="summary-toggle mt-1 text-[11px] text-brass/80 hover:text-brass">展开</button>` : ''}
-                    ` : ''}
-                    ${clusterHtml}
+                    ${summaryBlock(article.description, i)}
+                    ${clusterTimelineHtml(article, `rel-${i}`)}
                     <div class="mt-3.5 flex flex-wrap items-center justify-between gap-2 border-t border-white/5 pt-3">
                         <span class="text-[11px] text-mist-500">${escapeHtml(article.published || '—')}</span>
                         <div class="flex items-center gap-1.5">
@@ -999,23 +1347,8 @@
         html += '</div>';
         container.innerHTML = html;
 
-        container.querySelectorAll('.cluster-toggle').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const panel = document.getElementById(btn.dataset.target);
-                if (!panel) return;
-                const open = !panel.classList.contains('hidden');
-                panel.classList.toggle('hidden', open);
-                btn.textContent = open ? btn.textContent.replace('▴', '▾') : btn.textContent.replace('▾', '▴');
-            });
-        });
-        container.querySelectorAll('.summary-toggle').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const p = btn.previousElementSibling;
-                if (!p) return;
-                const open = p.classList.toggle('expanded');
-                btn.textContent = open ? '收起' : '展开';
-            });
-        });
+        bindClusterToggles(container);
+        bindReaderTriggers(container, articles);
         container.querySelectorAll('[data-open-link]').forEach(el => {
             el.addEventListener('click', () => markRead(el.dataset.openLink, true));
         });
@@ -1116,6 +1449,7 @@
             calendarBody.innerHTML = `<div class="py-20 text-center text-sm text-mist-500">无结果</div>`;
             return;
         }
+        const calArticles = [];
         let html = '<div class="space-y-8">';
         days.forEach(day => {
             html += `<section>
@@ -1125,17 +1459,22 @@
                 </div>
                 <div class="space-y-1">`;
             day.items.forEach(it => {
+                const idx = calArticles.length;
+                calArticles.push(it);
                 const link = it.link || '';
                 const read = isRead(link);
                 const later = isLater(link);
                 html += `
-                    <div class="grid grid-cols-1 items-start gap-2 rounded-xl px-2 py-2.5 transition hover:bg-white/[0.03] sm:grid-cols-[7rem_1fr_auto] ${read ? 'opacity-45' : ''}">
-                        <div class="text-xs font-medium ${it.company ? 'text-brass' : 'text-mist-500'}">${escapeHtml(it.company || '—')}</div>
-                        <a class="text-sm leading-snug text-mist-100 hover:text-brass" href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer" data-open-link="${escapeHtml(link)}">${escapeHtml(it.title)}</a>
-                        <div class="flex gap-1.5">
-                            <button type="button" class="${actionBtn(later)}" data-later="${escapeHtml(link)}">稍后</button>
-                            <button type="button" class="${actionBtn(read)}" data-read="${escapeHtml(link)}">已读</button>
+                    <div class="rounded-xl px-2 py-2.5 transition hover:bg-white/[0.03] ${read ? 'opacity-45' : ''}">
+                        <div class="grid grid-cols-1 items-start gap-2 sm:grid-cols-[7rem_1fr_auto]">
+                            <div class="text-xs font-medium ${it.company ? 'text-brass' : 'text-mist-500'}">${escapeHtml(it.company || '—')}</div>
+                            <a class="text-sm leading-snug text-mist-100 hover:text-brass" href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer" data-open-link="${escapeHtml(link)}">${escapeHtml(it.title)}</a>
+                            <div class="flex gap-1.5">
+                                <button type="button" class="${actionBtn(later)}" data-later="${escapeHtml(link)}">稍后</button>
+                                <button type="button" class="${actionBtn(read)}" data-read="${escapeHtml(link)}">已读</button>
+                            </div>
                         </div>
+                        ${summaryBlock(it.description, idx, 'sm:ml-[7rem]')}
                     </div>`;
             });
             html += '</div></section>';
@@ -1151,6 +1490,7 @@
         calendarBody.querySelectorAll('[data-read]').forEach(btn => {
             btn.addEventListener('click', () => { markRead(btn.dataset.read, !isRead(btn.dataset.read)); loadEarningsCalendar(); });
         });
+        bindReaderTriggers(calendarBody, calArticles);
     }
 
     function renderPagination(meta) {
@@ -1356,6 +1696,7 @@
             briefingBody.innerHTML = `<div class="py-20 text-center text-sm text-mist-500">近 ${escapeHtml(String(data.days || 1))} 日暂无足够内容</div>`;
             return;
         }
+        const briefArticles = [];
         let html = '';
         if (earnings.length) {
             html += `<section class="mb-8">
@@ -1363,7 +1704,11 @@
                     <h3 class="font-display text-lg tracking-wide text-mist-50">财报速览</h3>
                     <span class="text-xs text-mist-500">${earnings.length}</span>
                 </div>
-                <div class="space-y-2">${earnings.map(it => briefItemHtml(it, true)).join('')}</div>
+                <div class="space-y-2">${earnings.map(it => {
+                    const idx = briefArticles.length;
+                    briefArticles.push(it);
+                    return briefItemHtml(it, true, idx);
+                }).join('')}</div>
             </section>`;
         }
         sections.forEach(sec => {
@@ -1372,7 +1717,11 @@
                     <h3 class="font-display text-lg tracking-wide text-mist-50">${escapeHtml(sec.label)}</h3>
                     <span class="text-xs text-mist-500">${sec.count}</span>
                 </div>
-                <div class="space-y-2">${(sec.items || []).map(it => briefItemHtml(it, false)).join('')}</div>
+                <div class="space-y-2">${(sec.items || []).map(it => {
+                    const idx = briefArticles.length;
+                    briefArticles.push(it);
+                    return briefItemHtml(it, false, idx);
+                }).join('')}</div>
             </section>`;
         });
         briefingBody.innerHTML = html;
@@ -1385,37 +1734,25 @@
         briefingBody.querySelectorAll('[data-read]').forEach(btn => {
             btn.addEventListener('click', () => { markRead(btn.dataset.read, !isRead(btn.dataset.read)); loadBriefing(); });
         });
-        briefingBody.querySelectorAll('.summary-toggle').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const p = btn.previousElementSibling;
-                if (!p) return;
-                const open = p.classList.toggle('expanded');
-                btn.textContent = open ? '收起' : '展开';
-            });
-        });
+        bindReaderTriggers(briefingBody, briefArticles);
+        bindClusterToggles(briefingBody);
     }
 
-    function briefItemHtml(it, showCompany) {
+    function briefItemHtml(it, showCompany, readerIdx) {
         const link = it.link || '';
         const read = isRead(link);
         const later = isLater(link);
-        const cluster = (it.cluster_size || 1) > 1
-            ? `<span class="text-[10px] text-brass/80">同题 ${it.cluster_size}</span>` : '';
         const company = showCompany && it.company
             ? `<span class="text-xs font-medium text-brass">${escapeHtml(it.company)}</span>` : '';
-        const summary = it.description
-            ? `<p class="mt-1.5 text-xs leading-relaxed text-mist-500 line-clamp-2" data-summary>${escapeHtml(it.description)}</p>
-               ${it.description.length > 120 ? `<button type="button" class="summary-toggle mt-1 text-[11px] text-brass/80 hover:text-brass">展开</button>` : ''}`
-            : '';
         return `
             <article class="rounded-xl border border-white/5 bg-ink-800/40 px-3.5 py-3 ${read ? 'opacity-50' : ''} ${later ? 'ring-1 ring-brass/25' : ''}">
                 <div class="mb-1.5 flex flex-wrap items-center gap-2">
                     ${company}
                     <span class="text-xs text-mist-400">${escapeHtml(it.source_cn || it.source || '')}</span>
-                    ${cluster}
                 </div>
                 <a class="text-sm font-medium leading-snug text-mist-50 hover:text-brass" href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer" data-open-link="${escapeHtml(link)}">${escapeHtml(it.title)}</a>
-                ${summary}
+                ${summaryBlock(it.description, readerIdx)}
+                ${clusterTimelineHtml(it, `brief-rel-${readerIdx}`)}
                 <div class="mt-2.5 flex flex-wrap items-center justify-between gap-2">
                     <span class="text-[11px] text-mist-500">${escapeHtml(it.published || '—')}</span>
                     <div class="flex gap-1.5">

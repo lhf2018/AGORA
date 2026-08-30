@@ -101,6 +101,7 @@ def build_calendar(articles):
             "source_cn": art.get("source_cn"),
             "published": art.get("published"),
             "published_timestamp": art.get("published_timestamp"),
+            "description": art.get("description") or "",
             "company": co["label"] if co else None,
             "company_id": co["id"] if co else None,
             "country": art.get("country"),

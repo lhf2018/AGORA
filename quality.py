@@ -156,7 +156,10 @@ def cluster_to_card(cluster):
             'source': r.get('source'),
             'source_cn': r.get('source_cn'),
             'published': r.get('published'),
+            'published_timestamp': r.get('published_timestamp'),
             'country': r.get('country'),
+            'description': r.get('description') or '',
+            'icon': r.get('icon') or '',
         }
         for r in related
     ]
