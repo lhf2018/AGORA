@@ -113,6 +113,79 @@
         }
         @keyframes shimmer { to { background-position: -200% 0; } }
         select option, select optgroup { background: #14171d; color: #f4f1ea; }
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .line-clamp-2.expanded {
+            display: block;
+            -webkit-line-clamp: unset;
+            overflow: visible;
+        }
+        .admin-input {
+            width: 100%;
+            border-radius: 0.75rem;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(12,14,18,0.8);
+            padding: 0.55rem 0.85rem;
+            font-size: 0.875rem;
+            color: #f4f1ea;
+            outline: none;
+            line-height: 1.25;
+        }
+        .admin-input:focus { border-color: rgba(198,161,91,0.5); }
+        .admin-toolbar {
+            display: grid;
+            gap: 0.65rem;
+            grid-template-columns: 1fr;
+        }
+        @media (min-width: 640px) {
+            .admin-toolbar {
+                grid-template-columns: minmax(0, 1fr) 7.5rem auto;
+                align-items: stretch;
+            }
+        }
+        .admin-toolbar .admin-input,
+        .admin-toolbar .admin-btn {
+            height: 2.5rem;
+            box-sizing: border-box;
+        }
+        .admin-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            white-space: nowrap;
+            border-radius: 0.75rem;
+            padding: 0 1rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border: 1px solid transparent;
+            transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+        }
+        .admin-btn-primary {
+            background: #c6a15b;
+            color: #07080a;
+        }
+        .admin-btn-primary:hover { filter: brightness(1.05); }
+        .admin-btn-ghost {
+            background: transparent;
+            border-color: rgba(255,255,255,0.1);
+            color: #b7b0a2;
+        }
+        .admin-btn-ghost:hover {
+            border-color: rgba(198,161,91,0.4);
+            color: #c6a15b;
+        }
+        .admin-label {
+            display: block;
+            margin-bottom: 0.35rem;
+            font-size: 0.7rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #8f8778;
+        }
     </style>
 </head>
 <body class="h-full font-sans text-mist-50 antialiased">
@@ -122,10 +195,12 @@
     <header class="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div class="flex items-end gap-6">
             <h1 class="font-display text-5xl font-bold leading-none tracking-[0.04em] text-mist-50 sm:text-6xl">AGORA</h1>
-            <nav class="mb-1.5 flex gap-1 rounded-full border border-white/10 bg-ink-800/70 p-1 backdrop-blur" aria-label="视图">
+            <nav class="mb-1.5 flex flex-wrap gap-1 rounded-full border border-white/10 bg-ink-800/70 p-1 backdrop-blur" aria-label="视图">
                 <button type="button" data-view="timeline" class="view-btn rounded-full px-3.5 py-1.5 text-xs font-medium text-mist-50 bg-brass shadow-sm">认知</button>
+                <button type="button" data-view="briefing" class="view-btn rounded-full px-3.5 py-1.5 text-xs font-medium text-mist-400 hover:text-mist-100">今日简报</button>
                 <button type="button" data-view="agenda" class="view-btn rounded-full px-3.5 py-1.5 text-xs font-medium text-mist-400 hover:text-mist-100">财报专栏</button>
                 <button type="button" data-view="library" class="view-btn rounded-full px-3.5 py-1.5 text-xs font-medium text-mist-400 hover:text-mist-100">收藏</button>
+                <button type="button" data-view="sources" class="view-btn rounded-full px-3.5 py-1.5 text-xs font-medium text-mist-400 hover:text-mist-100">源管理</button>
             </nav>
         </div>
         <div class="flex flex-wrap items-center gap-x-5 gap-y-1 font-display text-[11px] uppercase tracking-[0.16em] text-mist-400">
@@ -228,6 +303,108 @@
         </section>
         <div id="calendarBody"></div>
     </div>
+
+    <!-- Briefing -->
+    <div id="briefingWrap" class="hidden">
+        <section class="mb-5 rounded-2xl border border-white/10 bg-ink-800/60 shadow-panel backdrop-blur-md">
+            <div class="border-b border-white/5 px-4 py-4 sm:px-5">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                        <h2 class="font-display text-xl tracking-wide text-mist-50">今日简报</h2>
+                        <p class="mt-1 text-xs text-mist-400">按领域挑选近 24 小时要点，同题已合并</p>
+                    </div>
+                    <div class="flex flex-wrap gap-1.5" id="briefDaysFilter"></div>
+                </div>
+            </div>
+            <div class="flex flex-wrap items-center gap-2 border-b border-white/5 px-4 py-3 sm:px-5">
+                <button type="button" id="briefRefresh" class="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-mist-300 hover:border-brass/40 hover:text-brass">刷新</button>
+                <button type="button" id="briefCopyMd" class="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-mist-300 hover:border-brass/40 hover:text-brass">复制 Markdown</button>
+                <button type="button" id="briefCopyLink" class="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-mist-300 hover:border-brass/40 hover:text-brass">复制链接</button>
+                <a id="briefSharePage" href="/share/briefing?days=1" target="_blank" rel="noopener" class="rounded-lg bg-brass px-3 py-1.5 text-xs font-semibold text-ink-950 hover:brightness-105">打开分享页</a>
+                <a id="briefDownloadMd" href="/api/briefing.md?days=1&download=1" class="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-mist-300 hover:border-brass/40 hover:text-brass">下载 .md</a>
+                <span id="briefShareMsg" class="text-xs text-mist-500"></span>
+            </div>
+            <div id="briefTopics" class="flex flex-wrap gap-1.5 px-4 py-3 sm:px-5"></div>
+        </section>
+        <div id="briefingBody"></div>
+    </div>
+
+    <!-- Sources admin -->
+    <div id="sourcesWrap" class="hidden">
+        <section class="mb-5 rounded-2xl border border-white/10 bg-ink-800/60 shadow-panel backdrop-blur-md">
+            <div class="border-b border-white/5 px-4 py-4 sm:px-5">
+                <h2 class="font-display text-xl tracking-wide text-mist-50">源管理</h2>
+                <p class="mt-1 text-xs leading-relaxed text-mist-400">增删自定义源；内置源可禁用、改 RSS 或试抓</p>
+            </div>
+            <div class="px-4 py-4 sm:px-5">
+                <div class="admin-toolbar">
+                    <input type="search" id="adminSearch" placeholder="搜索源名 / RSS" class="admin-input" aria-label="搜索源">
+                    <select id="adminOrigin" class="admin-input" aria-label="来源类型">
+                        <option value="all">全部来源</option>
+                        <option value="builtin">内置</option>
+                        <option value="custom">自定义</option>
+                    </select>
+                    <button type="button" id="adminNewBtn" class="admin-btn admin-btn-primary">新增源</button>
+                </div>
+            </div>
+            <div id="adminForm" class="hidden border-t border-white/5 px-4 py-5 sm:px-5">
+                <div class="mb-4 text-xs text-mist-400" id="adminFormTitle">新增自定义源</div>
+                <div class="grid gap-3 sm:grid-cols-2">
+                    <div>
+                        <label class="admin-label" for="afName">英文名 name</label>
+                        <input id="afName" class="admin-input" placeholder="Example Institute">
+                    </div>
+                    <div>
+                        <label class="admin-label" for="afNameCn">中文名</label>
+                        <input id="afNameCn" class="admin-input" placeholder="示例机构">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="admin-label" for="afRss">RSS URL</label>
+                        <input id="afRss" class="admin-input" placeholder="https://…/feed.xml">
+                    </div>
+                    <div>
+                        <label class="admin-label" for="afCountry">国家</label>
+                        <input id="afCountry" class="admin-input" value="其他">
+                    </div>
+                    <div>
+                        <label class="admin-label" for="afCategory">分类</label>
+                        <input id="afCategory" class="admin-input" value="其他">
+                    </div>
+                    <div>
+                        <label class="admin-label" for="afDocType">文体</label>
+                        <select id="afDocType" class="admin-input"></select>
+                    </div>
+                    <div>
+                        <label class="admin-label" for="afDomain">领域</label>
+                        <select id="afDomain" class="admin-input"></select>
+                    </div>
+                    <div>
+                        <label class="admin-label" for="afPriority">优先级</label>
+                        <select id="afPriority" class="admin-input">
+                            <option value="1">高优 (1)</option>
+                            <option value="2" selected>普通 (2)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="admin-label" for="afIcon">图标 URL</label>
+                        <input id="afIcon" class="admin-input" placeholder="https://…/favicon.ico">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="admin-label" for="afDesc">源简介</label>
+                        <input id="afDesc" class="admin-input" placeholder="可选">
+                    </div>
+                </div>
+                <div class="mt-4 flex flex-wrap items-center gap-2">
+                    <button type="button" id="afSave" class="admin-btn admin-btn-primary">保存</button>
+                    <button type="button" id="afTest" class="admin-btn admin-btn-ghost">试抓</button>
+                    <button type="button" id="afCancel" class="admin-btn admin-btn-ghost">取消</button>
+                    <span id="afMsg" class="text-xs text-mist-500"></span>
+                </div>
+                <div id="afTestResult" class="mt-3 hidden rounded-xl border border-white/5 bg-ink-900/50 p-3 text-xs text-mist-400"></div>
+            </div>
+        </section>
+        <div id="adminList"></div>
+    </div>
 </div>
 
 <script>
@@ -253,6 +430,9 @@
     let shelfPoolKey = '';
     let calDays = '30';
     let calCompany = 'all';
+    let briefDays = '1';
+    let adminEditing = null; // name when editing, null when creating
+    let adminLabels = { doc_type_labels: {}, domain_labels: {} };
 
     const STORE_KEY = 'agora.reading.v1';
     const container = document.getElementById('articlesContainer');
@@ -273,6 +453,13 @@
     const calendarWrap = document.getElementById('calendarWrap');
     const calendarBody = document.getElementById('calendarBody');
     const calCompaniesEl = document.getElementById('calCompanies');
+    const briefingWrap = document.getElementById('briefingWrap');
+    const briefingBody = document.getElementById('briefingBody');
+    const sourcesWrap = document.getElementById('sourcesWrap');
+    const adminList = document.getElementById('adminList');
+    const adminForm = document.getElementById('adminForm');
+    const afMsg = document.getElementById('afMsg');
+    const afTestResult = document.getElementById('afTestResult');
 
     const DOC_TYPES = [
         { id: 'all', label: '全部' },
@@ -359,8 +546,12 @@
     function applyViewChrome() {
         const lib = currentView === 'library';
         const agenda = currentView === 'agenda';
-        feedWrap.classList.toggle('hidden', agenda);
+        const briefing = currentView === 'briefing';
+        const sources = currentView === 'sources';
+        feedWrap.classList.toggle('hidden', agenda || briefing || sources);
         calendarWrap.classList.toggle('hidden', !agenda);
+        briefingWrap.classList.toggle('hidden', !briefing);
+        sourcesWrap.classList.toggle('hidden', !sources);
         const shelfRow = document.getElementById('shelfRow');
         if (shelfRow) shelfRow.classList.toggle('hidden', !lib);
         ['domainRow', 'typeRow', 'countryRow', 'topicRow'].forEach(id => {
@@ -374,11 +565,11 @@
         try {
             bindViewNav();
             const [sourcesRes, statsRes] = await Promise.all([
-                fetch('/api/sources'),
-                fetch('/api/stats'),
+                fetchJson('/api/sources'),
+                fetchJson('/api/stats'),
             ]);
-            await sourcesRes.json();
-            const stats = await statsRes.json();
+            void sourcesRes;
+            const stats = statsRes;
             sourceCountSpan.textContent = stats.total_sources;
             domainCountSpan.textContent = Object.keys(stats.domain_stats || {}).length;
             renderTimeFilters();
@@ -387,9 +578,12 @@
             renderTypeFilters();
             renderCountrySelect(Object.keys(stats.country_stats || {}));
             renderCalTimeFilters();
+            renderBriefDaysFilters();
             bindReset();
             bindSearch();
             bindHealth();
+            bindBriefing();
+            bindAdmin();
             updateActiveSummary();
             applyViewChrome();
             loadHealth(true);
@@ -787,6 +981,10 @@
                     <h2 class="text-[0.95rem] font-semibold leading-snug tracking-tight">
                         <a class="text-mist-50 transition hover:text-brass" href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer" data-open-link="${escapeHtml(link)}">${escapeHtml(article.title)}</a>
                     </h2>
+                    ${article.description ? `
+                    <p class="article-summary mt-2 text-xs leading-relaxed text-mist-400 line-clamp-2" data-summary>${escapeHtml(article.description)}</p>
+                    ${article.description.length > 120 ? `<button type="button" class="summary-toggle mt-1 text-[11px] text-brass/80 hover:text-brass">展开</button>` : ''}
+                    ` : ''}
                     ${clusterHtml}
                     <div class="mt-3.5 flex flex-wrap items-center justify-between gap-2 border-t border-white/5 pt-3">
                         <span class="text-[11px] text-mist-500">${escapeHtml(article.published || '—')}</span>
@@ -808,6 +1006,14 @@
                 const open = !panel.classList.contains('hidden');
                 panel.classList.toggle('hidden', open);
                 btn.textContent = open ? btn.textContent.replace('▴', '▾') : btn.textContent.replace('▾', '▴');
+            });
+        });
+        container.querySelectorAll('.summary-toggle').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const p = btn.previousElementSibling;
+                if (!p) return;
+                const open = p.classList.toggle('expanded');
+                btn.textContent = open ? '收起' : '展开';
             });
         });
         container.querySelectorAll('[data-open-link]').forEach(el => {
@@ -847,6 +1053,8 @@
                 applyViewChrome();
                 updateActiveSummary();
                 if (view === 'agenda') loadEarningsCalendar();
+                else if (view === 'briefing') loadBriefing();
+                else if (view === 'sources') loadAdminSources();
                 else loadArticles(1);
             });
         });
@@ -1006,6 +1214,437 @@
         return String(str).replace(/[&<>"']/g, m => ({
             '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
         }[m]));
+    }
+
+    async function fetchJson(url, options) {
+        const res = await fetch(url, options);
+        const ct = (res.headers.get('content-type') || '').toLowerCase();
+        const text = await res.text();
+        if (!ct.includes('application/json')) {
+            const hint = text.trimStart().startsWith('<')
+                ? '接口返回了网页而不是 JSON（常见原因：服务未重启，或路径 404）'
+                : text.slice(0, 120);
+            throw new Error(`${res.status} ${url}: ${hint}`);
+        }
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch {
+            throw new Error(`${res.status} ${url}: JSON 解析失败`);
+        }
+        if (!res.ok) {
+            throw new Error((data && data.error) || `${res.status} ${url}`);
+        }
+        return data;
+    }
+
+    function renderBriefDaysFilters() {
+        const el = document.getElementById('briefDaysFilter');
+        if (!el) return;
+        const opts = [
+            { id: '1', label: '今日' },
+            { id: '2', label: '近2日' },
+            { id: '3', label: '近3日' },
+        ];
+        el.innerHTML = opts.map(({ id, label }) =>
+            `<button type="button" class="chip ${briefDays === id ? 'active' : ''}" data-days="${id}">${label}</button>`
+        ).join('');
+        el.querySelectorAll('.chip').forEach(btn => {
+            btn.addEventListener('click', () => {
+                briefDays = btn.dataset.days;
+                el.querySelectorAll('.chip').forEach(b => b.classList.toggle('active', b === btn));
+                syncBriefShareLinks();
+                loadBriefing();
+            });
+        });
+    }
+
+    function bindBriefing() {
+        const btn = document.getElementById('briefRefresh');
+        if (btn) btn.addEventListener('click', () => loadBriefing());
+        document.getElementById('briefCopyMd')?.addEventListener('click', copyBriefingMarkdown);
+        document.getElementById('briefCopyLink')?.addEventListener('click', copyBriefingLink);
+        syncBriefShareLinks();
+    }
+
+    function syncBriefShareLinks() {
+        const days = encodeURIComponent(briefDays);
+        const share = document.getElementById('briefSharePage');
+        const dl = document.getElementById('briefDownloadMd');
+        if (share) share.href = `/share/briefing?days=${days}`;
+        if (dl) dl.href = `/api/briefing.md?days=${days}&download=1`;
+    }
+
+    function setBriefShareMsg(text) {
+        const el = document.getElementById('briefShareMsg');
+        if (!el) return;
+        el.textContent = text || '';
+        if (text) setTimeout(() => { if (el.textContent === text) el.textContent = ''; }, 2000);
+    }
+
+    async function copyTextToClipboard(text) {
+        if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(text);
+            return;
+        }
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+    }
+
+    async function copyBriefingMarkdown() {
+        try {
+            const res = await fetch(`/api/briefing.md?days=${encodeURIComponent(briefDays)}`);
+            const text = await res.text();
+            if (!res.ok) throw new Error(text.slice(0, 80) || '导出失败');
+            await copyTextToClipboard(text);
+            setBriefShareMsg('已复制 Markdown');
+        } catch (err) {
+            setBriefShareMsg(err.message || '复制失败');
+        }
+    }
+
+    async function copyBriefingLink() {
+        try {
+            const url = `${location.origin}/share/briefing?days=${encodeURIComponent(briefDays)}`;
+            await copyTextToClipboard(url);
+            setBriefShareMsg('已复制链接');
+        } catch (err) {
+            setBriefShareMsg(err.message || '复制失败');
+        }
+    }
+
+    async function loadBriefing() {
+        syncBriefShareLinks();
+        briefingBody.innerHTML = `<div class="flex flex-col items-center justify-center py-20 text-mist-400"><div class="spinner"></div><div class="text-sm">生成简报</div></div>`;
+        try {
+            const data = await fetchJson(`/api/briefing?days=${encodeURIComponent(briefDays)}`);
+            if (data.loading) {
+                briefingBody.innerHTML = `<div class="flex flex-col items-center justify-center py-20 text-mist-400"><div class="spinner"></div><div class="text-sm">数据准备中</div></div>`;
+                return;
+            }
+            totalCountSpan.textContent = data.total_items;
+            if (data.cached_at) updateTimeSpan.textContent = formatCachedTime(data.cached_at);
+            renderBriefTopics(data.topics || []);
+            renderBriefing(data);
+        } catch (err) {
+            briefingBody.innerHTML = `<div class="py-20 text-center text-sm text-red-400">${escapeHtml(err.message)}</div>`;
+        }
+    }
+
+    function renderBriefTopics(topics) {
+        const el = document.getElementById('briefTopics');
+        if (!topics.length) {
+            el.innerHTML = '<span class="text-xs text-mist-500">暂无热点议题</span>';
+            return;
+        }
+        el.innerHTML = topics.map(t =>
+            `<span class="chip hot" style="cursor:default">${escapeHtml(t.label)}<span class="count">${t.count}</span></span>`
+        ).join('');
+    }
+
+    function renderBriefing(data) {
+        const sections = data.sections || [];
+        const earnings = data.earnings || [];
+        if (!sections.length && !earnings.length) {
+            briefingBody.innerHTML = `<div class="py-20 text-center text-sm text-mist-500">近 ${escapeHtml(String(data.days || 1))} 日暂无足够内容</div>`;
+            return;
+        }
+        let html = '';
+        if (earnings.length) {
+            html += `<section class="mb-8">
+                <div class="mb-3 flex items-baseline gap-3 border-b border-white/10 pb-2">
+                    <h3 class="font-display text-lg tracking-wide text-mist-50">财报速览</h3>
+                    <span class="text-xs text-mist-500">${earnings.length}</span>
+                </div>
+                <div class="space-y-2">${earnings.map(it => briefItemHtml(it, true)).join('')}</div>
+            </section>`;
+        }
+        sections.forEach(sec => {
+            html += `<section class="mb-8">
+                <div class="mb-3 flex items-baseline gap-3 border-b border-white/10 pb-2">
+                    <h3 class="font-display text-lg tracking-wide text-mist-50">${escapeHtml(sec.label)}</h3>
+                    <span class="text-xs text-mist-500">${sec.count}</span>
+                </div>
+                <div class="space-y-2">${(sec.items || []).map(it => briefItemHtml(it, false)).join('')}</div>
+            </section>`;
+        });
+        briefingBody.innerHTML = html;
+        briefingBody.querySelectorAll('[data-open-link]').forEach(el => {
+            el.addEventListener('click', () => markRead(el.dataset.openLink, true));
+        });
+        briefingBody.querySelectorAll('[data-later]').forEach(btn => {
+            btn.addEventListener('click', () => { toggleLater(btn.dataset.later); loadBriefing(); });
+        });
+        briefingBody.querySelectorAll('[data-read]').forEach(btn => {
+            btn.addEventListener('click', () => { markRead(btn.dataset.read, !isRead(btn.dataset.read)); loadBriefing(); });
+        });
+        briefingBody.querySelectorAll('.summary-toggle').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const p = btn.previousElementSibling;
+                if (!p) return;
+                const open = p.classList.toggle('expanded');
+                btn.textContent = open ? '收起' : '展开';
+            });
+        });
+    }
+
+    function briefItemHtml(it, showCompany) {
+        const link = it.link || '';
+        const read = isRead(link);
+        const later = isLater(link);
+        const cluster = (it.cluster_size || 1) > 1
+            ? `<span class="text-[10px] text-brass/80">同题 ${it.cluster_size}</span>` : '';
+        const company = showCompany && it.company
+            ? `<span class="text-xs font-medium text-brass">${escapeHtml(it.company)}</span>` : '';
+        const summary = it.description
+            ? `<p class="mt-1.5 text-xs leading-relaxed text-mist-500 line-clamp-2" data-summary>${escapeHtml(it.description)}</p>
+               ${it.description.length > 120 ? `<button type="button" class="summary-toggle mt-1 text-[11px] text-brass/80 hover:text-brass">展开</button>` : ''}`
+            : '';
+        return `
+            <article class="rounded-xl border border-white/5 bg-ink-800/40 px-3.5 py-3 ${read ? 'opacity-50' : ''} ${later ? 'ring-1 ring-brass/25' : ''}">
+                <div class="mb-1.5 flex flex-wrap items-center gap-2">
+                    ${company}
+                    <span class="text-xs text-mist-400">${escapeHtml(it.source_cn || it.source || '')}</span>
+                    ${cluster}
+                </div>
+                <a class="text-sm font-medium leading-snug text-mist-50 hover:text-brass" href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer" data-open-link="${escapeHtml(link)}">${escapeHtml(it.title)}</a>
+                ${summary}
+                <div class="mt-2.5 flex flex-wrap items-center justify-between gap-2">
+                    <span class="text-[11px] text-mist-500">${escapeHtml(it.published || '—')}</span>
+                    <div class="flex gap-1.5">
+                        <button type="button" class="${actionBtn(later)}" data-later="${escapeHtml(link)}">稍后</button>
+                        <button type="button" class="${actionBtn(read)}" data-read="${escapeHtml(link)}">已读</button>
+                    </div>
+                </div>
+            </article>`;
+    }
+
+    function fillAdminSelects() {
+        const dt = document.getElementById('afDocType');
+        const dm = document.getElementById('afDomain');
+        const docLabels = { '': '自动推断', ...Object.fromEntries(DOC_TYPES.filter(t => t.id !== 'all').map(t => [t.id, t.label])) };
+        const domainLabels = { '': '自动推断', ...Object.fromEntries(DOMAINS.filter(t => t.id !== 'all').map(t => [t.id, t.label])) };
+        dt.innerHTML = Object.entries(docLabels).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
+        dm.innerHTML = Object.entries(domainLabels).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
+    }
+
+    function bindAdmin() {
+        fillAdminSelects();
+        let searchTimer = null;
+        document.getElementById('adminSearch').addEventListener('input', () => {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(() => loadAdminSources(), 280);
+        });
+        document.getElementById('adminOrigin').addEventListener('change', () => loadAdminSources());
+        document.getElementById('adminNewBtn').addEventListener('click', () => openAdminForm(null));
+        document.getElementById('afCancel').addEventListener('click', () => {
+            adminForm.classList.add('hidden');
+            adminEditing = null;
+        });
+        document.getElementById('afSave').addEventListener('click', saveAdminForm);
+        document.getElementById('afTest').addEventListener('click', testAdminForm);
+    }
+
+    function openAdminForm(source) {
+        adminForm.classList.remove('hidden');
+        afMsg.textContent = '';
+        afTestResult.classList.add('hidden');
+        adminEditing = source ? source.name : null;
+        const titleEl = document.getElementById('adminFormTitle');
+        if (titleEl) {
+            titleEl.textContent = source
+                ? (source.origin === 'builtin' ? `编辑内置源 · ${source.name_cn || source.name}` : `编辑自定义源 · ${source.name_cn || source.name}`)
+                : '新增自定义源';
+        }
+        const nameEl = document.getElementById('afName');
+        nameEl.value = source ? source.name : '';
+        nameEl.disabled = !!source;
+        document.getElementById('afNameCn').value = source ? (source.name_cn || '') : '';
+        document.getElementById('afRss').value = source ? (source.rss || '') : '';
+        document.getElementById('afCountry').value = source ? (source.country || '其他') : '其他';
+        document.getElementById('afCategory').value = source ? (source.category || '其他') : '其他';
+        document.getElementById('afDocType').value = source ? (source.doc_type || '') : '';
+        document.getElementById('afDomain').value = source ? (source.domain || '') : '';
+        document.getElementById('afPriority').value = String(source ? (source.priority || 2) : 2);
+        document.getElementById('afIcon').value = source ? (source.icon || '') : '';
+        document.getElementById('afDesc').value = source ? (source.description || '') : '';
+        adminForm.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function adminFormPayload() {
+        return {
+            name: document.getElementById('afName').value.trim(),
+            name_cn: document.getElementById('afNameCn').value.trim(),
+            rss: document.getElementById('afRss').value.trim(),
+            country: document.getElementById('afCountry').value.trim() || '其他',
+            category: document.getElementById('afCategory').value.trim() || '其他',
+            doc_type: document.getElementById('afDocType').value || null,
+            domain: document.getElementById('afDomain').value || null,
+            priority: parseInt(document.getElementById('afPriority').value, 10) || 2,
+            icon: document.getElementById('afIcon').value.trim(),
+            description: document.getElementById('afDesc').value.trim(),
+            enabled: true,
+        };
+    }
+
+    async function saveAdminForm() {
+        const payload = adminFormPayload();
+        afMsg.textContent = '保存中…';
+        try {
+            let res;
+            if (adminEditing) {
+                res = await fetch(`/api/admin/sources/${encodeURIComponent(adminEditing)}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+            } else {
+                res = await fetch('/api/admin/sources', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+            }
+            const data = await res.json();
+            if (!res.ok || !data.ok) throw new Error(data.error || '保存失败');
+            afMsg.textContent = '已保存';
+            adminForm.classList.add('hidden');
+            adminEditing = null;
+            await loadAdminSources();
+            const stats = await (await fetch('/api/stats')).json();
+            sourceCountSpan.textContent = stats.total_sources;
+        } catch (err) {
+            afMsg.textContent = err.message;
+        }
+    }
+
+    async function testAdminForm() {
+        const payload = adminFormPayload();
+        afMsg.textContent = '试抓中…';
+        afTestResult.classList.remove('hidden');
+        afTestResult.textContent = '请求中…';
+        try {
+            const res = await fetch('/api/admin/sources/test', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            const data = await res.json();
+            if (!data.ok) {
+                afMsg.textContent = data.error || '试抓失败';
+                afTestResult.textContent = data.error || '失败';
+                return;
+            }
+            afMsg.textContent = `试抓成功 ${data.count} 条`;
+            afTestResult.innerHTML = (data.samples || []).map(s =>
+                `<div class="mb-2"><div class="text-mist-200">${escapeHtml(s.title)}</div>
+                 <div class="text-mist-500">${escapeHtml(s.description || '')}</div></div>`
+            ).join('') || '无条目';
+        } catch (err) {
+            afMsg.textContent = err.message;
+            afTestResult.textContent = err.message;
+        }
+    }
+
+    async function loadAdminSources() {
+        adminList.innerHTML = `<div class="flex flex-col items-center justify-center py-16 text-mist-400"><div class="spinner"></div></div>`;
+        try {
+            const q = document.getElementById('adminSearch').value.trim();
+            const origin = document.getElementById('adminOrigin').value;
+            const params = new URLSearchParams({ origin });
+            if (q) params.set('q', q);
+            const data = await fetchJson(`/api/admin/sources?${params}`);
+            adminLabels = data;
+            totalCountSpan.textContent = data.total;
+            renderAdminList(data.sources || []);
+        } catch (err) {
+            adminList.innerHTML = `<div class="py-16 text-center text-sm text-red-400">${escapeHtml(err.message)}</div>`;
+        }
+    }
+
+    function renderAdminList(sources) {
+        if (!sources.length) {
+            adminList.innerHTML = `<div class="py-16 text-center text-sm text-mist-500">无匹配源</div>`;
+            return;
+        }
+        const statusLabel = { ok: '正常', failing: '异常', demoted: '降权', unknown: '未知' };
+        adminList.innerHTML = `
+            <div class="overflow-x-auto rounded-2xl border border-white/10 bg-ink-800/50">
+                <table class="w-full min-w-[720px] text-left text-xs text-mist-400">
+                    <thead class="text-mist-500">
+                        <tr class="border-b border-white/5">
+                            <th class="px-3 py-3 font-medium">状态</th>
+                            <th class="px-3 py-3 font-medium">名称</th>
+                            <th class="px-3 py-3 font-medium">类型</th>
+                            <th class="px-3 py-3 font-medium">国家</th>
+                            <th class="px-3 py-3 font-medium">健康</th>
+                            <th class="px-3 py-3 font-medium">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${sources.slice(0, 200).map(s => `
+                            <tr class="border-b border-white/[0.03] ${s.enabled ? '' : 'opacity-45'}">
+                                <td class="px-3 py-2.5">${s.enabled ? '启用' : '停用'}</td>
+                                <td class="px-3 py-2.5">
+                                    <div class="text-mist-100">${escapeHtml(s.name_cn || s.name)}</div>
+                                    <div class="mt-0.5 text-[10px] text-mist-500">${escapeHtml(s.origin)} · ${escapeHtml(s.name)}</div>
+                                </td>
+                                <td class="px-3 py-2.5">${escapeHtml(s.doc_type_label || '')}<div class="text-[10px] text-mist-500">${escapeHtml(s.domain_label || '')}</div></td>
+                                <td class="px-3 py-2.5">${escapeHtml(s.country || '')}</td>
+                                <td class="px-3 py-2.5">${statusLabel[s.status] || s.status}<div class="text-[10px] text-mist-500">${s.success_count}/${s.fail_count}</div></td>
+                                <td class="px-3 py-2.5">
+                                    <div class="flex flex-wrap gap-1">
+                                        <button type="button" class="rounded-md border border-white/10 px-2 py-1 text-[11px] hover:border-brass/40 hover:text-brass" data-admin-edit="${escapeHtml(s.name)}">编辑</button>
+                                        <button type="button" class="rounded-md border border-white/10 px-2 py-1 text-[11px] hover:border-brass/40 hover:text-brass" data-admin-toggle="${escapeHtml(s.name)}" data-enabled="${s.enabled ? '1' : '0'}">${s.enabled ? '禁用' : '启用'}</button>
+                                        <button type="button" class="rounded-md border border-white/10 px-2 py-1 text-[11px] hover:border-brass/40 hover:text-brass" data-admin-fetch="${escapeHtml(s.name)}">抓取</button>
+                                        ${s.origin === 'custom' ? `<button type="button" class="rounded-md border border-white/10 px-2 py-1 text-[11px] text-red-300/80 hover:border-red-400/40" data-admin-del="${escapeHtml(s.name)}">删除</button>` : ''}
+                                    </div>
+                                </td>
+                            </tr>`).join('')}
+                    </tbody>
+                </table>
+                ${sources.length > 200 ? `<div class="border-t border-white/5 px-3 py-2 text-[11px] text-mist-500">仅显示前 200 条，请缩小搜索范围</div>` : ''}
+            </div>`;
+
+        const byName = Object.fromEntries(sources.map(s => [s.name, s]));
+        adminList.querySelectorAll('[data-admin-edit]').forEach(btn => {
+            btn.addEventListener('click', () => openAdminForm(byName[btn.dataset.adminEdit]));
+        });
+        adminList.querySelectorAll('[data-admin-toggle]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const name = btn.dataset.adminToggle;
+                const enabled = btn.dataset.enabled !== '1';
+                await fetch(`/api/admin/sources/${encodeURIComponent(name)}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled }),
+                });
+                loadAdminSources();
+            });
+        });
+        adminList.querySelectorAll('[data-admin-fetch]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                btn.textContent = '…';
+                const res = await fetch(`/api/admin/sources/${encodeURIComponent(btn.dataset.adminFetch)}/fetch`, { method: 'POST' });
+                const data = await res.json();
+                btn.textContent = data.ok ? '已触发' : '失败';
+                setTimeout(() => { btn.textContent = '抓取'; }, 1500);
+            });
+        });
+        adminList.querySelectorAll('[data-admin-del]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                if (!confirm(`删除自定义源「${btn.dataset.adminDel}」？`)) return;
+                await fetch(`/api/admin/sources/${encodeURIComponent(btn.dataset.adminDel)}`, { method: 'DELETE' });
+                loadAdminSources();
+            });
+        });
     }
 
     init();

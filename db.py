@@ -123,6 +123,37 @@ def init_db(db_path=None):
                     key TEXT PRIMARY KEY,
                     value TEXT
                 );
+
+                CREATE TABLE IF NOT EXISTS custom_sources (
+                    name TEXT PRIMARY KEY,
+                    name_cn TEXT NOT NULL,
+                    rss TEXT NOT NULL,
+                    icon TEXT,
+                    category TEXT DEFAULT '其他',
+                    doc_type TEXT,
+                    domain TEXT,
+                    country TEXT DEFAULT '其他',
+                    priority INTEGER DEFAULT 2,
+                    description TEXT,
+                    enabled INTEGER DEFAULT 1,
+                    created_at TEXT,
+                    updated_at TEXT
+                );
+
+                CREATE TABLE IF NOT EXISTS source_overrides (
+                    name TEXT PRIMARY KEY,
+                    enabled INTEGER,
+                    rss TEXT,
+                    name_cn TEXT,
+                    icon TEXT,
+                    category TEXT,
+                    doc_type TEXT,
+                    domain TEXT,
+                    country TEXT,
+                    priority INTEGER,
+                    description TEXT,
+                    updated_at TEXT
+                );
                 '''
             )
             conn.commit()
@@ -636,3 +667,165 @@ def iter_all_article_titles(limit=5000):
             (limit,),
         ).fetchall()
         return [(r['link'], r['title']) for r in rows]
+
+
+def _row_custom_source(row):
+    if not row:
+        return None
+    return {
+        'name': row['name'],
+        'name_cn': row['name_cn'],
+        'rss': row['rss'],
+        'icon': row['icon'] or '',
+        'category': row['category'] or '其他',
+        'doc_type': row['doc_type'],
+        'domain': row['domain'],
+        'country': row['country'] or '其他',
+        'priority': row['priority'] if row['priority'] is not None else 2,
+        'description': row['description'] or '',
+        'enabled': 1 if (row['enabled'] is None or row['enabled']) else 0,
+        'created_at': row['created_at'],
+        'updated_at': row['updated_at'],
+    }
+
+
+def list_custom_sources():
+    with get_conn() as conn:
+        rows = conn.execute(
+            'SELECT * FROM custom_sources ORDER BY name_cn COLLATE NOCASE'
+        ).fetchall()
+        return [_row_custom_source(r) for r in rows]
+
+
+def get_custom_source(name):
+    with get_conn() as conn:
+        row = conn.execute(
+            'SELECT * FROM custom_sources WHERE name=?', (name,)
+        ).fetchone()
+        return _row_custom_source(row)
+
+
+def upsert_custom_source(payload):
+    now = datetime.utcnow().isoformat()
+    with get_conn() as conn:
+        existing = conn.execute(
+            'SELECT created_at FROM custom_sources WHERE name=?',
+            (payload['name'],),
+        ).fetchone()
+        created = existing['created_at'] if existing else now
+        conn.execute(
+            '''
+            INSERT INTO custom_sources (
+                name, name_cn, rss, icon, category, doc_type, domain,
+                country, priority, description, enabled, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(name) DO UPDATE SET
+                name_cn=excluded.name_cn,
+                rss=excluded.rss,
+                icon=excluded.icon,
+                category=excluded.category,
+                doc_type=excluded.doc_type,
+                domain=excluded.domain,
+                country=excluded.country,
+                priority=excluded.priority,
+                description=excluded.description,
+                enabled=excluded.enabled,
+                updated_at=excluded.updated_at
+            ''',
+            (
+                payload['name'],
+                payload.get('name_cn') or payload['name'],
+                payload['rss'],
+                payload.get('icon') or '',
+                payload.get('category') or '其他',
+                payload.get('doc_type'),
+                payload.get('domain'),
+                payload.get('country') or '其他',
+                payload.get('priority', 2),
+                payload.get('description') or '',
+                1 if payload.get('enabled', True) else 0,
+                created,
+                now,
+            ),
+        )
+
+
+def delete_custom_source(name):
+    with get_conn() as conn:
+        cur = conn.execute('DELETE FROM custom_sources WHERE name=?', (name,))
+        return cur.rowcount
+
+
+def list_source_overrides():
+    with get_conn() as conn:
+        rows = conn.execute('SELECT * FROM source_overrides').fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_source_override(name):
+    with get_conn() as conn:
+        row = conn.execute(
+            'SELECT * FROM source_overrides WHERE name=?', (name,)
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def upsert_source_override(payload):
+    """Merge override row; None/missing keys leave existing DB values when updating."""
+    now = datetime.utcnow().isoformat()
+    name = payload['name']
+    with get_conn() as conn:
+        prev = conn.execute(
+            'SELECT * FROM source_overrides WHERE name=?', (name,)
+        ).fetchone()
+        prev = dict(prev) if prev else {}
+
+        def pick(key, default=None):
+            if key in payload:
+                return payload[key]
+            return prev.get(key, default)
+
+        enabled = pick('enabled')
+        if enabled is not None:
+            enabled = 1 if enabled not in (0, False, '0', 'false') else 0
+
+        conn.execute(
+            '''
+            INSERT INTO source_overrides (
+                name, enabled, rss, name_cn, icon, category, doc_type,
+                domain, country, priority, description, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(name) DO UPDATE SET
+                enabled=excluded.enabled,
+                rss=excluded.rss,
+                name_cn=excluded.name_cn,
+                icon=excluded.icon,
+                category=excluded.category,
+                doc_type=excluded.doc_type,
+                domain=excluded.domain,
+                country=excluded.country,
+                priority=excluded.priority,
+                description=excluded.description,
+                updated_at=excluded.updated_at
+            ''',
+            (
+                name,
+                enabled,
+                pick('rss'),
+                pick('name_cn'),
+                pick('icon'),
+                pick('category'),
+                pick('doc_type'),
+                pick('domain'),
+                pick('country'),
+                pick('priority'),
+                pick('description'),
+                now,
+            ),
+        )
+
+
+def delete_source_override(name):
+    with get_conn() as conn:
+        cur = conn.execute('DELETE FROM source_overrides WHERE name=?', (name,))
+        return cur.rowcount

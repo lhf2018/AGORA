@@ -4,13 +4,15 @@ import re
 import time
 import threading
 import concurrent.futures
+from copy import deepcopy
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
+from html import unescape
 from urllib.parse import urlparse, parse_qs, unquote
 
 import feedparser
 import requests
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, Response
 from flask_caching import Cache
 
 from config import (
@@ -18,10 +20,7 @@ from config import (
     TOPIC_LEXICON,
     DOC_TYPE_LABELS,
     DOMAIN_LABELS,
-    get_country_stats,
-    get_category_stats,
-    get_doc_type_stats,
-    get_domain_stats,
+    enrich_source,
     get_source_type,
     get_source_type_label,
     SOURCE_TYPE_LABELS,
@@ -42,9 +41,26 @@ NORMAL_INTERVAL_MIN = 30
 RETENTION_DAYS = 30
 SCHEDULER_TICK_SEC = 60
 
+BRIEFING_SECTIONS = [
+    {'domain': 'geopolitics', 'label': '地缘', 'limit': 5},
+    {'domain': 'macro', 'label': '宏观金融', 'limit': 5},
+    {'domain': 'tech', 'label': '科技', 'limit': 5},
+    {'domain': 'energy', 'label': '能源气候', 'limit': 3},
+    {'domain': 'industry', 'label': '产业', 'limit': 3},
+    {'domain': 'health', 'label': '卫生健康', 'limit': 3},
+    {'domain': 'general', 'label': '综合', 'limit': 3},
+]
+
+_TAG_RE = re.compile(r'<[^>]+>')
+_WS_RE = re.compile(r'\s+')
+
 _fetch_lock = threading.Lock()
 _fetch_in_progress = False
 _scheduler_started = False
+_sources_lock = threading.Lock()
+_sources_cache = None
+_sources_cache_ts = 0.0
+SOURCES_CACHE_TTL = 5.0
 
 
 def make_naive(dt):
@@ -133,6 +149,132 @@ def clean_gnews_title(title, feed_url=''):
     return cleaned or title
 
 
+def clean_summary(raw, max_len=320):
+    """Strip HTML from RSS summary/description for card display."""
+    if not raw:
+        return ''
+    text = _TAG_RE.sub(' ', str(raw))
+    text = unescape(text)
+    text = _WS_RE.sub(' ', text).strip()
+    if len(text) > max_len:
+        cut = text[:max_len]
+        sp = cut.rfind(' ')
+        if sp > max_len // 2:
+            cut = cut[:sp]
+        text = cut.rstrip('.,;:，。；：、 ') + '…'
+    return text
+
+
+def entry_summary(entry):
+    raw = entry.get('summary') or entry.get('description') or ''
+    if not raw and entry.get('content'):
+        try:
+            raw = entry.content[0].get('value', '')
+        except (IndexError, AttributeError, TypeError, KeyError):
+            raw = ''
+    return clean_summary(raw)
+
+
+def invalidate_sources_cache():
+    global _sources_cache, _sources_cache_ts
+    with _sources_lock:
+        _sources_cache = None
+        _sources_cache_ts = 0.0
+
+
+def get_runtime_sources(include_disabled=False):
+    """Builtin config + DB overrides/customs. Cached briefly for fetch loops."""
+    global _sources_cache, _sources_cache_ts
+    now = time.time()
+    with _sources_lock:
+        if (
+            not include_disabled
+            and _sources_cache is not None
+            and (now - _sources_cache_ts) < SOURCES_CACHE_TTL
+        ):
+            return list(_sources_cache)
+
+    overrides = {o['name']: o for o in db.list_source_overrides()}
+    customs = db.list_custom_sources()
+    merged = []
+    seen = set()
+
+    for base in THINK_TANKS_CONFIG:
+        feed = deepcopy(base)
+        name = feed['name']
+        seen.add(name)
+        ov = overrides.get(name)
+        enabled = True
+        if ov:
+            if ov.get('enabled') is not None and int(ov['enabled']) == 0:
+                enabled = False
+            for key in (
+                'rss', 'name_cn', 'icon', 'category', 'doc_type',
+                'domain', 'country', 'priority', 'description',
+            ):
+                val = ov.get(key)
+                if val is not None and val != '':
+                    feed[key] = val
+        feed['origin'] = 'builtin'
+        feed['enabled'] = enabled
+        enrich_source(feed)
+        if include_disabled or enabled:
+            merged.append(feed)
+
+    for row in customs:
+        name = row['name']
+        if name in seen:
+            continue
+        seen.add(name)
+        feed = {
+            'name': row['name'],
+            'name_cn': row['name_cn'],
+            'rss': row['rss'],
+            'icon': row.get('icon') or '',
+            'category': row.get('category') or '其他',
+            'doc_type': row.get('doc_type') or None,
+            'domain': row.get('domain') or None,
+            'country': row.get('country') or '其他',
+            'priority': row.get('priority') if row.get('priority') is not None else 2,
+            'description': row.get('description') or '',
+            'origin': 'custom',
+            'enabled': bool(row.get('enabled', 1)),
+        }
+        enrich_source(feed)
+        if include_disabled or feed['enabled']:
+            merged.append(feed)
+
+    if not include_disabled:
+        with _sources_lock:
+            _sources_cache = list(merged)
+            _sources_cache_ts = time.time()
+    return merged
+
+
+def runtime_stats(sources):
+    country_stats = {}
+    category_stats = {}
+    doc_type_stats = {}
+    domain_stats = {}
+    for s in sources:
+        if not s.get('enabled', True):
+            continue
+        c = s.get('country', '其他') or '其他'
+        country_stats[c] = country_stats.get(c, 0) + 1
+        cat = s.get('category', '其他') or '其他'
+        category_stats[cat] = category_stats.get(cat, 0) + 1
+        dt = s.get('doc_type') or get_source_type(s)
+        doc_type_stats[dt] = doc_type_stats.get(dt, 0) + 1
+        d = s.get('domain') or 'general'
+        domain_stats[d] = domain_stats.get(d, 0) + 1
+    return {
+        'country_stats': country_stats,
+        'category_stats': category_stats,
+        'doc_type_stats': doc_type_stats,
+        'domain_stats': domain_stats,
+    }
+
+
 def fetch_feed(feed_info):
     """Fetch one RSS source. Returns (articles, error_or_None, noise_hits)."""
     articles = []
@@ -184,7 +326,7 @@ def fetch_feed(feed_info):
                 'domain_label': feed_info.get('domain_label') or '',
                 'country': feed_info.get('country', '其他'),
                 'priority': feed_info.get('priority', 2),
-                'description': feed_info.get('description', ''),
+                'description': entry_summary(entry),
             })
             if len(articles) >= 5:
                 break
@@ -289,12 +431,13 @@ def run_fetch_job(mode='incremental', force_all=False):
         _fetch_in_progress = True
 
     try:
+        sources = get_runtime_sources()
         if force_all or db.article_count() == 0:
-            feeds = list(THINK_TANKS_CONFIG)
+            feeds = list(sources)
             mode = 'full'
         else:
             feeds = db.get_due_source_names(
-                THINK_TANKS_CONFIG,
+                sources,
                 high_interval_min=HIGH_INTERVAL_MIN,
                 normal_interval_min=NORMAL_INTERVAL_MIN,
             )
@@ -416,6 +559,9 @@ def bootstrap():
         removed = db.delete_articles_by_links(junk_links)
         print(f'已清理噪音标题文章 {removed} 篇')
         count = db.article_count()
+    scrubbed = scrub_mistaken_summaries()
+    if scrubbed:
+        print(f'已清除误写入的源简介摘要 {scrubbed} 篇')
     backfilled = backfill_article_taxonomy()
     if backfilled:
         print(f'已回填领域/文体标签 {backfilled} 篇')
@@ -424,9 +570,29 @@ def bootstrap():
     start_scheduler()
 
 
+def scrub_mistaken_summaries():
+    """旧版本把源简介写进了文章 description，启动时清掉。"""
+    blurbs = {
+        (s.get('name'), (s.get('description') or '').strip())
+        for s in THINK_TANKS_CONFIG
+        if (s.get('description') or '').strip()
+    }
+    if not blurbs:
+        return 0
+    cleared = 0
+    with db.get_conn() as conn:
+        for name, blurb in blurbs:
+            cur = conn.execute(
+                'UPDATE articles SET description=? WHERE source=? AND description=?',
+                ('', name, blurb),
+            )
+            cleared += cur.rowcount
+    return cleared
+
+
 def backfill_article_taxonomy():
     """用当前源配置回填旧文章的 domain / source_type。"""
-    by_name = {s['name']: s for s in THINK_TANKS_CONFIG}
+    by_name = {s['name']: s for s in get_runtime_sources(include_disabled=True)}
     updated = 0
     with db.get_conn() as conn:
         rows = conn.execute(
@@ -458,9 +624,216 @@ def backfill_article_taxonomy():
     return updated
 
 
+def build_briefing(days=1):
+    """今日简报：按领域取同题合并后的要点 + 议题热点。"""
+    days = max(1, min(int(days or 1), 3))
+    rows = db.query_articles(days=days, fetch_all=True, limit=600)
+    clusters = quality.cluster_articles(rows)
+    cards = [quality.cluster_to_card(c) for c in clusters]
+
+    def sort_key(a):
+        pri = a.get('priority') if a.get('priority') is not None else 2
+        ts = a.get('published_timestamp') or ''
+        return (pri, 0 if ts else 1, ts)
+
+    by_domain = {}
+    for card in cards:
+        d = card.get('domain') or 'general'
+        by_domain.setdefault(d, []).append(card)
+
+    sections = []
+    picked_links = set()
+    for spec in BRIEFING_SECTIONS:
+        items = sorted(by_domain.get(spec['domain'], []), key=sort_key)
+        picked = []
+        for it in items:
+            link = it.get('link') or ''
+            if link in picked_links:
+                continue
+            picked_links.add(link)
+            picked.append({
+                'title': it.get('title'),
+                'link': link,
+                'source': it.get('source'),
+                'source_cn': it.get('source_cn'),
+                'icon': it.get('icon') or '',
+                'published': it.get('published'),
+                'description': it.get('description') or '',
+                'source_type_label': it.get('source_type_label') or '',
+                'domain_label': it.get('domain_label') or '',
+                'country': it.get('country') or '',
+                'cluster_size': it.get('cluster_size') or 1,
+                'priority': it.get('priority', 2),
+            })
+            if len(picked) >= spec['limit']:
+                break
+        if picked:
+            sections.append({
+                'domain': spec['domain'],
+                'label': spec['label'],
+                'count': len(picked),
+                'items': picked,
+            })
+
+    topics_payload = extract_topics(days=max(days, 1), limit=10)
+    earnings_rows = [
+        a for a in cards
+        if (a.get('source_type') or '') == 'earnings'
+    ][:8]
+    earnings_items = []
+    for a in earnings_rows:
+        co = earnings.detect_company(a.get('title') or '')
+        earnings_items.append({
+            'title': a.get('title'),
+            'link': a.get('link'),
+            'source_cn': a.get('source_cn'),
+            'published': a.get('published'),
+            'description': a.get('description') or '',
+            'company': (co or {}).get('label') if co else None,
+        })
+
+    total_items = sum(s['count'] for s in sections)
+    return {
+        'days': days,
+        'generated_at': datetime.utcnow().isoformat(),
+        'article_pool': len(rows),
+        'cluster_pool': len(cards),
+        'total_items': total_items,
+        'topics': topics_payload.get('topics') or [],
+        'sections': sections,
+        'earnings': earnings_items,
+        'cached_at': db.latest_fetched_at(),
+    }
+
+
+def briefing_window_label(days):
+    return {1: '今日', 2: '近2日', 3: '近3日'}.get(int(days or 1), f'近{days}日')
+
+
+def briefing_to_markdown(payload):
+    """Render briefing payload as shareable Markdown."""
+    days = payload.get('days') or 1
+    lines = [f"# Agora {briefing_window_label(days)}简报", '']
+    gen = (payload.get('generated_at') or '')[:16].replace('T', ' ')
+    meta = f"{payload.get('total_items', 0)} 条要点"
+    if gen:
+        meta = f"生成于 {gen} UTC · {meta}"
+    lines.append(f"> {meta}")
+    lines.append('')
+
+    topics = payload.get('topics') or []
+    if topics:
+        labels = ' · '.join(
+            f"{t.get('label')}({t.get('count')})" for t in topics[:8]
+        )
+        lines.append(f"**热点议题** {labels}")
+        lines.append('')
+
+    earnings = payload.get('earnings') or []
+    if earnings:
+        lines.append('## 财报速览')
+        lines.append('')
+        for it in earnings:
+            co = f"**{it['company']}** · " if it.get('company') else ''
+            src = it.get('source_cn') or it.get('source') or ''
+            title = (it.get('title') or '').replace('[', '\\[').replace(']', '\\]')
+            link = it.get('link') or ''
+            tail = f" — {src}" if src else ''
+            if link:
+                lines.append(f"- {co}[{title}]({link}){tail}")
+            else:
+                lines.append(f"- {co}{title}{tail}")
+            desc = (it.get('description') or '').strip()
+            if desc:
+                lines.append(f"  - {desc}")
+        lines.append('')
+
+    for sec in payload.get('sections') or []:
+        lines.append(f"## {sec.get('label') or '综合'}")
+        lines.append('')
+        for it in sec.get('items') or []:
+            src = it.get('source_cn') or it.get('source') or ''
+            title = (it.get('title') or '').replace('[', '\\[').replace(']', '\\]')
+            link = it.get('link') or ''
+            cluster = ''
+            if (it.get('cluster_size') or 1) > 1:
+                cluster = f" 〔同题 {it['cluster_size']}〕"
+            tail = f" — {src}{cluster}" if src or cluster else cluster
+            if link:
+                lines.append(f"- [{title}]({link}){tail}")
+            else:
+                lines.append(f"- {title}{tail}")
+            desc = (it.get('description') or '').strip()
+            if desc:
+                lines.append(f"  - {desc}")
+        lines.append('')
+
+    lines.append('---')
+    lines.append('*由 [Agora](/) 生成*')
+    return '\n'.join(lines).rstrip() + '\n'
+
+
+def get_briefing_payload(days=1):
+    """Shared loader for JSON / Markdown / share page."""
+    days = max(1, min(int(days or 1), 3))
+    if db.article_count() == 0:
+        return {
+            'loading': True,
+            'days': days,
+            'sections': [],
+            'topics': [],
+            'earnings': [],
+            'total_items': 0,
+            'generated_at': datetime.utcnow().isoformat(),
+        }
+    cache_key = f'briefing:{days}'
+    payload = cache.get(cache_key)
+    if payload is None:
+        payload = build_briefing(days=days)
+        cache.set(cache_key, payload, timeout=90)
+    out = dict(payload)
+    out['loading'] = False
+    out['fetching'] = _fetch_in_progress
+    out['window_label'] = briefing_window_label(days)
+    return out
+
+
 @app.route('/')
 def index():
     return render_template('index.html')
+
+
+@app.route('/share/briefing')
+def share_briefing():
+    days = request.args.get('days', 1, type=int)
+    payload = get_briefing_payload(days)
+    return render_template(
+        'briefing_share.html',
+        briefing=payload,
+        markdown=briefing_to_markdown(payload) if not payload.get('loading') else '',
+        share_path=f"/share/briefing?days={payload.get('days') or 1}",
+    )
+
+
+@app.route('/api/briefing.md')
+def get_briefing_markdown():
+    days = request.args.get('days', 1, type=int)
+    payload = get_briefing_payload(days)
+    if payload.get('loading'):
+        return Response(
+            '# Agora 简报\n\n数据准备中，请稍后重试。\n',
+            mimetype='text/markdown; charset=utf-8',
+            status=503,
+        )
+    md = briefing_to_markdown(payload)
+    download = request.args.get('download') == '1'
+    headers = {}
+    if download:
+        label = briefing_window_label(payload.get('days') or 1)
+        headers['Content-Disposition'] = (
+            f'attachment; filename="agora-briefing-{label}.md"'
+        )
+    return Response(md, mimetype='text/markdown; charset=utf-8', headers=headers)
 
 
 @app.route('/api/articles/status')
@@ -617,8 +990,17 @@ def earnings_calendar():
 
 @app.route('/api/feeds/health')
 def feeds_health():
-    summary = db.health_summary(THINK_TANKS_CONFIG)
+    summary = db.health_summary(get_runtime_sources(include_disabled=True))
     return jsonify(summary)
+
+
+@app.route('/api/briefing')
+def get_briefing():
+    days = request.args.get('days', 1, type=int)
+    payload = get_briefing_payload(days)
+    if payload.get('loading') and not _fetch_in_progress:
+        start_background_fetch(force_all=True)
+    return jsonify(payload)
 
 
 @app.route('/api/topics')
@@ -653,20 +1035,24 @@ def get_sources():
         'domain_label': s.get('domain_label', ''),
         'country': s.get('country', '其他'),
         'icon': s.get('icon', ''),
-        'description': s.get('description', '')
-    } for s in THINK_TANKS_CONFIG]
+        'description': s.get('description', ''),
+        'origin': s.get('origin', 'builtin'),
+        'enabled': s.get('enabled', True),
+    } for s in get_runtime_sources()]
     return jsonify(sources)
 
 
 @app.route('/api/stats')
 def get_stats():
+    sources = get_runtime_sources()
+    st = runtime_stats(sources)
     return jsonify({
-        'total_sources': len(THINK_TANKS_CONFIG),
+        'total_sources': len(sources),
         'article_count': db.article_count(),
-        'country_stats': get_country_stats(),
-        'category_stats': get_category_stats(),
-        'doc_type_stats': get_doc_type_stats(),
-        'domain_stats': get_domain_stats(),
+        'country_stats': st['country_stats'],
+        'category_stats': st['category_stats'],
+        'doc_type_stats': st['doc_type_stats'],
+        'domain_stats': st['domain_stats'],
         'source_type_labels': SOURCE_TYPE_LABELS,
         'doc_type_labels': DOC_TYPE_LABELS,
         'domain_labels': DOMAIN_LABELS,
@@ -681,11 +1067,239 @@ def trigger_fetch():
     return jsonify({'ok': True, 'fetching': True})
 
 
+def _validate_source_payload(data, require_name=True):
+    data = data or {}
+    name = (data.get('name') or '').strip()
+    name_cn = (data.get('name_cn') or '').strip()
+    rss = (data.get('rss') or '').strip()
+    if require_name and not name:
+        return None, 'name 必填'
+    if require_name and not name_cn:
+        return None, 'name_cn 必填'
+    if require_name and not rss:
+        return None, 'rss 必填'
+    if rss and not (rss.startswith('http://') or rss.startswith('https://')):
+        return None, 'rss 须为 http(s) URL'
+    doc_type = (data.get('doc_type') or data.get('source_type') or '').strip() or None
+    if doc_type and doc_type not in DOC_TYPE_LABELS:
+        return None, f'无效文体: {doc_type}'
+    domain = (data.get('domain') or '').strip() or None
+    if domain and domain not in DOMAIN_LABELS:
+        return None, f'无效领域: {domain}'
+    try:
+        priority = int(data.get('priority', 2))
+    except (TypeError, ValueError):
+        priority = 2
+    priority = 1 if priority == 1 else 2
+    enabled = data.get('enabled', True)
+    if isinstance(enabled, str):
+        enabled = enabled.lower() not in ('0', 'false', 'no', 'off')
+    payload = {
+        'name': name,
+        'name_cn': name_cn or name,
+        'rss': rss,
+        'icon': (data.get('icon') or '').strip(),
+        'category': (data.get('category') or '其他').strip() or '其他',
+        'doc_type': doc_type,
+        'domain': domain,
+        'country': (data.get('country') or '其他').strip() or '其他',
+        'priority': priority,
+        'description': (data.get('description') or '').strip(),
+        'enabled': bool(enabled),
+    }
+    return payload, None
+
+
+@app.route('/api/admin/sources')
+def admin_list_sources():
+    sources = get_runtime_sources(include_disabled=True)
+    health = {
+        h['name']: h for h in db.list_source_health(sources)
+    }
+    q = (request.args.get('q') or '').strip().lower()
+    origin = (request.args.get('origin') or 'all').strip().lower()
+    items = []
+    for s in sources:
+        if origin in ('builtin', 'custom') and s.get('origin') != origin:
+            continue
+        if q:
+            blob = f"{s.get('name','')} {s.get('name_cn','')} {s.get('country','')} {s.get('rss','')}".lower()
+            if q not in blob:
+                continue
+        h = health.get(s['name'], {})
+        items.append({
+            'name': s['name'],
+            'name_cn': s.get('name_cn'),
+            'rss': s.get('rss'),
+            'icon': s.get('icon') or '',
+            'category': s.get('category') or '',
+            'doc_type': s.get('doc_type') or get_source_type(s),
+            'doc_type_label': s.get('doc_type_label') or get_source_type_label(s),
+            'domain': s.get('domain') or '',
+            'domain_label': s.get('domain_label') or '',
+            'country': s.get('country') or '',
+            'priority': s.get('priority', 2),
+            'description': s.get('description') or '',
+            'origin': s.get('origin', 'builtin'),
+            'enabled': bool(s.get('enabled', True)),
+            'status': h.get('status', 'unknown'),
+            'last_error': h.get('last_error'),
+            'last_fetched_at': h.get('last_fetched_at'),
+            'success_count': h.get('success_count', 0),
+            'fail_count': h.get('fail_count', 0),
+        })
+    return jsonify({
+        'total': len(items),
+        'sources': items,
+        'doc_type_labels': DOC_TYPE_LABELS,
+        'domain_labels': DOMAIN_LABELS,
+    })
+
+
+@app.route('/api/admin/sources', methods=['POST'])
+def admin_create_source():
+    payload, err = _validate_source_payload(request.get_json(silent=True), require_name=True)
+    if err:
+        return jsonify({'ok': False, 'error': err}), 400
+    builtin_names = {s['name'] for s in THINK_TANKS_CONFIG}
+    if payload['name'] in builtin_names or db.get_custom_source(payload['name']):
+        return jsonify({'ok': False, 'error': '源名称已存在'}), 409
+    db.upsert_custom_source(payload)
+    invalidate_sources_cache()
+    cache.clear()
+    return jsonify({'ok': True, 'source': payload})
+
+
+@app.route('/api/admin/sources/test', methods=['POST'])
+def admin_test_source():
+    data = request.get_json(silent=True) or {}
+    rss = (data.get('rss') or '').strip()
+    name = (data.get('name') or 'Test Feed').strip() or 'Test Feed'
+    if not rss.startswith(('http://', 'https://')):
+        return jsonify({'ok': False, 'error': 'rss 须为 http(s) URL'}), 400
+    feed = {
+        'name': name,
+        'name_cn': data.get('name_cn') or name,
+        'rss': rss,
+        'icon': data.get('icon') or '',
+        'category': data.get('category') or '其他',
+        'country': data.get('country') or '其他',
+        'priority': 2,
+        'doc_type': data.get('doc_type'),
+        'domain': data.get('domain'),
+    }
+    enrich_source(feed)
+    articles, err, noise = fetch_feed(feed)
+    return jsonify({
+        'ok': err is None,
+        'error': err,
+        'noise_hits': noise,
+        'count': len(articles),
+        'samples': [
+            {
+                'title': a.get('title'),
+                'link': a.get('link'),
+                'published': a.get('published'),
+                'description': (a.get('description') or '')[:160],
+            }
+            for a in articles[:3]
+        ],
+    })
+
+
+@app.route('/api/admin/sources/<path:name>', methods=['PUT'])
+def admin_update_source(name):
+    name = unquote(name).strip()
+    data = request.get_json(silent=True) or {}
+    data['name'] = name
+    builtin = next((s for s in THINK_TANKS_CONFIG if s['name'] == name), None)
+    custom = db.get_custom_source(name)
+
+    if builtin:
+        # override fields on builtin; enabled can disable
+        ov = {
+            'name': name,
+            'enabled': 1 if data.get('enabled', True) not in (False, 0, '0', 'false') else 0,
+        }
+        for key in ('rss', 'name_cn', 'icon', 'category', 'doc_type', 'domain', 'country', 'description'):
+            if key in data and data[key] is not None:
+                ov[key] = data[key]
+        if 'priority' in data:
+            try:
+                ov['priority'] = 1 if int(data['priority']) == 1 else 2
+            except (TypeError, ValueError):
+                ov['priority'] = 2
+        if ov.get('rss') and not str(ov['rss']).startswith(('http://', 'https://')):
+            return jsonify({'ok': False, 'error': 'rss 须为 http(s) URL'}), 400
+        db.upsert_source_override(ov)
+        invalidate_sources_cache()
+        cache.clear()
+        return jsonify({'ok': True, 'origin': 'builtin'})
+
+    if not custom:
+        return jsonify({'ok': False, 'error': '源不存在'}), 404
+
+    payload, err = _validate_source_payload({**custom, **data, 'name': name}, require_name=True)
+    if err:
+        return jsonify({'ok': False, 'error': err}), 400
+    db.upsert_custom_source(payload)
+    invalidate_sources_cache()
+    cache.clear()
+    return jsonify({'ok': True, 'origin': 'custom', 'source': payload})
+
+
+@app.route('/api/admin/sources/<path:name>', methods=['DELETE'])
+def admin_delete_source(name):
+    name = unquote(name).strip()
+    builtin = next((s for s in THINK_TANKS_CONFIG if s['name'] == name), None)
+    if builtin:
+        # 内置源：禁用并清除覆盖中的字段改动（保留 disabled）
+        db.upsert_source_override({'name': name, 'enabled': 0})
+        invalidate_sources_cache()
+        cache.clear()
+        return jsonify({'ok': True, 'action': 'disabled'})
+    if not db.get_custom_source(name):
+        return jsonify({'ok': False, 'error': '源不存在'}), 404
+    db.delete_custom_source(name)
+    invalidate_sources_cache()
+    cache.clear()
+    return jsonify({'ok': True, 'action': 'deleted'})
+
+
+@app.route('/api/admin/sources/<path:name>/fetch', methods=['POST'])
+def admin_fetch_one(name):
+    name = unquote(name).strip()
+    sources = get_runtime_sources(include_disabled=True)
+    feed = next((s for s in sources if s['name'] == name), None)
+    if not feed:
+        return jsonify({'ok': False, 'error': '源不存在'}), 404
+    if not feed.get('enabled', True):
+        return jsonify({'ok': False, 'error': '源已禁用'}), 400
+    if _fetch_in_progress:
+        return jsonify({'ok': False, 'error': '全局抓取进行中，请稍后再试'}), 409
+
+    def _job():
+        global _fetch_in_progress
+        with _fetch_lock:
+            if _fetch_in_progress:
+                return
+            _fetch_in_progress = True
+        try:
+            fetch_sources([feed], mode='manual')
+            cache.clear()
+        finally:
+            _fetch_in_progress = False
+
+    threading.Thread(target=_job, daemon=True).start()
+    return jsonify({'ok': True, 'fetching': True, 'name': name})
+
+
 if __name__ == '__main__':
     os.makedirs('templates', exist_ok=True)
     os.makedirs('data', exist_ok=True)
-    print(f'已加载 {len(THINK_TANKS_CONFIG)} 个信息源')
-    print(f'覆盖国家和地区: {len(get_country_stats())} 个')
+    sources = get_runtime_sources()
+    print(f'已加载 {len(sources)} 个信息源')
+    print(f'覆盖国家和地区: {len(runtime_stats(sources)["country_stats"])} 个')
     db.init_db()
     bootstrap()
     # use_reloader=False：避免双进程重复抓取；定时线程已在 bootstrap 中启动
