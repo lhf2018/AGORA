@@ -1,47 +1,29 @@
 # Agora
 
-全球智库与政策研究机构 RSS 聚合
+个人认知信息聚合器：智库、财报、研报、白皮书、政策、论文、数据、公告与媒体，统一进本地信息流。
 
-[Agora](https://github.com/lhf2018/Think-Tank-Aggregation) 是一个基于 Flask 的 Web 应用，聚合全球智库、国际组织、政策媒体与学术期刊的 RSS 内容，按发布时间倒序展示，支持国家/地区与来源类型筛选、分页浏览。
+[仓库地址](https://github.com/lhf2018/Think-Tank-Aggregation)
 
-## 功能特点
+## 功能
 
-- **199 个信息源**，覆盖 **43** 个国家/地区
-- **双维度筛选**：国家/地区 × 来源类型（智库、国际组织、认知媒体、学术期刊、经济政策）
-- **分页加载**：默认每页 24 条，避免一次性渲染大量卡片
-- **后台预热**：启动后在后台抓取 RSS，首屏显示加载状态，完成后自动刷新
-- **内存缓存**：抓取结果缓存 10 分钟，降低对源站的压力
-- **合规抓取**：优先使用官方 RSS；无 RSS 的智库通过 Google News 站点订阅补充
-- **深色界面**：响应式布局，适配桌面与移动端
-
-## 信息源概览
-
-| 来源类型 | 数量 | 说明 |
-|----------|------|------|
-| 智库 | 170 | 各国/地区政策研究机构（含欧盟智库等） |
-| 国际组织 | 12 | 国际危机组织、经合组织等 |
-| 认知媒体 | 12 | Foreign Affairs、War on the Rocks 等 |
-| 学术期刊 | 3 | Nature、Science、The Lancet 等 |
-| 经济政策 | 2 | 彼得森研究所、NBER 等 |
-
-**地区覆盖（部分）**：中国、美国、英国、德国、法国、日本、韩国、印度、巴西、以色列、沙特、澳大利亚，以及泰国、菲律宾、越南、巴基斯坦、伊朗、埃及、尼日利亚、智利、哥伦比亚等。
-
-完整列表见 [`config.py`](./config.py) 中的 `THINK_TANKS_CONFIG`。
+- **260+ 信息源**，覆盖 **40+** 国家/地区
+- **认知 / 财报专栏 / 收藏** 三视图
+  - **认知**：主信息流，按领域 × 文体 × 国家 × 议题 × 时间筛选
+  - **财报专栏**：按日议程，识别公司名，支持公司过滤
+  - **收藏**：稍后读 / 已读 / 未读（浏览器 localStorage，无需账号）
+- **文体**：智库、财报、研报、白皮书、政策文件、科学论文、数据发布、公司公告、媒体
+- **领域**：地缘、产业、宏观金融、科技、能源气候、卫生健康、综合
+- **同题合并**：相似标题聚类，展示「同题 N」
+- **SQLite 持久化**：`data/aggregator.db`，重启秒开；历史约保留 30 天
+- **增量抓取**：高优源约 10 分钟、普通源约 30 分钟；失败/噪音源自动降权
+- **标题搜索**、议题词云、源健康度面板
 
 ## 快速开始
-
-### 环境要求
-
-- Python 3.8+
-- 可访问 RSS 源及 Google News（部分源依赖后者）
-
-### 安装与运行
 
 ```bash
 git clone https://github.com/lhf2018/Think-Tank-Aggregation.git
 cd Think-Tank-Aggregation
 
-# 创建虚拟环境（推荐）
 python -m venv venv
 
 # Windows
@@ -53,182 +35,123 @@ pip install -r requirements.txt
 python app.py
 ```
 
-浏览器访问：**http://localhost:5000**
+浏览器打开：**http://localhost:5000**
 
-> **首次加载**：应用会在后台并发抓取约 200 个 RSS 源，通常需要 1–2 分钟。页面会自动轮询 `/api/articles/status`，抓取完成后显示文章列表。
+首次空库会后台全量抓取（约 1–2 分钟）；有数据后重启即可直接浏览，后台继续增量更新。
 
-## 使用说明
+可选：安装 git hook，避免 Cursor 自动注入 commit attribution：
 
-### 筛选
+```powershell
+.\scripts\install-git-hooks.ps1
+```
 
-- **国家 / 地区**：按文章来源所在国家筛选（如「中国」「美国」「国际」）
-- **来源类型**：按内容性质筛选，与国家级「某某智库」标签解耦
-  - `智库` — 各国政策研究机构
-  - `国际组织` — 多边机构与非政府组织
-  - `认知媒体` — 评论与政策分析网站
-  - `学术期刊` — 学术出版物 RSS
-  - `经济政策` — 经济类研究机构
+## 使用
 
-两个维度可组合使用，例如「美国 + 认知媒体」。
+| 视图 | 说明 |
+|------|------|
+| 认知 | 浏览全部内容；可用时间 / 领域 / 文体 / 国家 / 议题筛选 |
+| 财报专栏 | 财报相关内容按日期排列，可点公司 chip 过滤 |
+| 收藏 | 查看「稍后」「已读」「未读」；在认知或专栏里点按钮打标 |
 
-### 分页
-
-- 底部分页栏切换页码，每页 24 条（API 最大 60 条/页）
-- 切换筛选条件时自动回到第 1 页
+卡片上可标记 **稍后 / 已读**；打开原文会记为已读。
 
 ## 项目结构
 
 ```
 Think-Tank-Aggregation/
-├── app.py              # Flask 应用：抓取、缓存、API
-├── config.py           # 信息源配置（THINK_TANKS_CONFIG）
-├── requirements.txt    # Python 依赖
-├── templates/
-│   └── index.html      # 前端页面
-├── TODO.md             # 后续规划（SQLite、搜索等）
+├── app.py              # Flask：抓取、调度、API
+├── db.py               # SQLite
+├── config.py           # 主源配置 + 文体/领域映射
+├── sources_extra.py    # 补充源（财报/政策/论文等）
+├── quality.py          # 噪音过滤、同题聚类、降权
+├── earnings.py         # 公司识别与财报日历
+├── templates/index.html
+├── data/               # aggregator.db（运行后生成，已 gitignore）
+├── scripts/
+│   ├── init_db.py
+│   └── install-git-hooks.ps1
+├── requirements.txt
+├── TODO.md
 └── README.md
 ```
 
-## 配置说明
+## 添加信息源
 
-### 添加信息源
-
-在 `config.py` 的 `THINK_TANKS_CONFIG` 中追加条目：
+优先在 `sources_extra.py` 追加，或写入 `config.py` 的 `THINK_TANKS_CONFIG`：
 
 ```python
 {
-    "name": "Brookings Institution",
-    "name_cn": "布鲁金斯学会",
+    "name": "Example Institute",
+    "name_cn": "示例机构",
     "rss": "https://example.com/feed.xml",
     "icon": "https://example.com/favicon.ico",
-    "category": "美国智库",       # 内部标签，用于映射来源类型
+    "category": "美国智库",
+    "doc_type": "think_tank",   # 可选，显式指定文体
+    "domain": "geopolitics",    # 可选，显式指定领域
     "country": "美国",
-    "priority": 1,               # 1 = 高优先级，2 = 普通
-    "description": "美国知名公共政策智库"
+    "priority": 1,              # 1 高优 / 2 普通
+    "description": "…",
 }
 ```
 
-**`category` 与来源类型的映射**（见 `config.py` 中 `get_source_type`）：
+未写 `doc_type` / `domain` 时，由 `config.py` 的 `get_doc_type` / `get_domain` 按 category、名称等推断。
 
-| category 值 | 来源类型 |
-|-------------|----------|
-| `国际组织` | 国际组织 |
-| `认知网站` | 认知媒体 |
-| `学术期刊` | 学术期刊 |
-| `经济政策` | 经济政策 |
-| 其他（如 `美国智库`） | 智库 |
+无官方 RSS 时，可用 `sources_extra.py` / `config.py` 中的 Google News 查询模板。
 
-无官方 RSS 时，可使用文件顶部的 `GNEWS_CN` / `GNEWS_US` / `GNEWS_SITE` 模板生成 Google News 站点订阅 URL。
+## API
 
-### 调整缓存时间
+| 接口 | 说明 |
+|------|------|
+| `GET /api/articles` | 文章列表（筛选见下） |
+| `GET /api/articles/status` | 库是否就绪 / 是否在抓取 |
+| `GET /api/earnings/calendar` | 财报按日议程 |
+| `GET /api/topics` | 近 N 日议题 |
+| `GET /api/feeds/health` | 源健康度 |
+| `GET /api/sources` | 全部源配置 |
+| `GET /api/stats` | 统计（含文体/领域） |
+| `POST /api/fetch/trigger` | 触发增量抓取 |
 
-`app.py`：
+### `GET /api/articles` 主要参数
 
-```python
-app.config['CACHE_DEFAULT_TIMEOUT'] = 600  # 秒，默认 10 分钟
-```
+| 参数 | 说明 |
+|------|------|
+| `page` / `per_page` | 分页（默认 24，最大 60；`pool=1` 时可达 400） |
+| `days` | `3` / `7` / `30` / `all` |
+| `domain` | 领域 id，如 `tech` |
+| `source_type` / `doc_type` | 文体 id，如 `earnings` |
+| `country` | 国家中文名 |
+| `topic` | 议题 id |
+| `q` | 标题关键词 |
+| `merge` | `1` 同题合并（默认） |
 
-### 调整并发抓取
+### `GET /api/earnings/calendar`
 
-`fetch_all_articles()` 中的 `max_workers`（默认 5）和 `batch_size`（默认 10）。
-
-## API 接口
-
-### `GET /api/articles`
-
-分页获取文章列表。
-
-| 参数 | 类型 | 默认 | 说明 |
-|------|------|------|------|
-| `page` | int | 1 | 页码 |
-| `per_page` | int | 24 | 每页条数（最大 60） |
-| `country` | string | `all` | 国家/地区，如 `中国`、`美国` |
-| `source_type` | string | `all` | `think_tank` / `international` / `media` / `journal` / `policy` |
-
-**响应示例**（抓取完成后）：
-
-```json
-{
-  "articles": [
-    {
-      "title": "...",
-      "link": "...",
-      "published": "2024-03-20 10:30",
-      "source": "Brookings Institution",
-      "source_cn": "布鲁金斯学会",
-      "country": "美国",
-      "source_type": "think_tank",
-      "source_type_label": "智库"
-    }
-  ],
-  "pagination": {
-    "page": 1,
-    "per_page": 24,
-    "total": 856,
-    "total_pages": 36,
-    "has_prev": false,
-    "has_next": true
-  },
-  "loading": false,
-  "cached_at": "2024-03-20T12:00:00"
-}
-```
-
-抓取进行中时 `loading: true`，`articles` 为空数组。
-
-### `GET /api/articles/status`
-
-查询后台抓取状态。
-
-```json
-{
-  "ready": true,
-  "loading": false,
-  "total": 856,
-  "cached_at": "2024-03-20T12:00:00"
-}
-```
-
-### `GET /api/sources`
-
-返回全部信息源配置（名称、国家、来源类型等）。
-
-### `GET /api/stats`
-
-返回统计信息：`total_sources`、`country_stats`、`category_stats`、`source_type_labels`。
+| 参数 | 说明 |
+|------|------|
+| `days` | 时间窗，默认 `30` |
+| `company` | 公司名或 id，可选 |
 
 ## 技术栈
 
 | 层级 | 技术 |
 |------|------|
-| 后端 | Flask、Flask-Caching、feedparser、requests、python-dateutil |
-| 前端 | HTML / CSS / 原生 JavaScript（Fetch API） |
-| 并发 | `ThreadPoolExecutor` 分批抓取 RSS |
+| 后端 | Flask、Flask-Caching、feedparser、requests、python-dateutil、SQLite |
+| 前端 | Tailwind CSS（CDN）、原生 JS |
+| 抓取 | `ThreadPoolExecutor` 分批并发 |
 
 ## 常见问题
 
-**Q: 首次打开页面一直 loading？**  
-A: 全量抓取约 200 个源需要 1–2 分钟，请等待后台完成；也可查看终端日志确认进度。
+**首次一直加载？**  
+空库全量抓取需 1–2 分钟，看终端日志即可。
 
-**Q: 部分源没有文章？**  
-A: RSS 失效、源站限流或 Google News 在本地网络不可达时，该源会被跳过，不影响其他源。
+**部分源无文章？**  
+RSS 失效、限流或 Google News 不可达时会跳过该源，不影响其他源。可在源状态面板查看。
 
-**Q: 筛选后结果为空？**  
-A: 检查国家与来源类型组合是否过窄；例如「国际 + 智库」可能几乎没有匹配项。
+**如何强制刷新？**  
+`POST /api/fetch/trigger`，或等定时增量。
 
-**Q: 如何强制刷新数据？**  
-A: 重启服务或等待 10 分钟缓存过期后重新请求。
-
-**Q: 国内访问 Google News 源不稳定？**  
-A: 可在 `config.py` 中将对应条目改为直连 RSS，或使用 `GNEWS_CN` 模板。
-
-## 后续计划
-
-详见 [TODO.md](./TODO.md)，主要包括：
-
-- SQLite 本地持久化（解决每次冷启动全量抓取）
-- 增量抓取与源健康度面板
-- 标题搜索、去重、`.gitignore` 与部署脚本
+**国内 Google News 不稳定？**  
+尽量改官方 RSS，或使用 `GNEWS_CN` 模板。
 
 ## 许可证
 
@@ -236,8 +159,8 @@ MIT License
 
 ## 贡献
 
-欢迎提交 Issue 或 Pull Request。添加新信息源时，请优先使用官方 RSS，并在 PR 中说明来源与许可情况。
+欢迎 Issue / PR。新增源请优先官方 RSS，并说明来源。
 
 ---
 
-本应用仅供学习与个人阅读聚合使用，请遵守各信息源的版权与使用条款。
+仅供学习与个人阅读聚合，请遵守各信息源版权与使用条款。

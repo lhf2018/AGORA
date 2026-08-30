@@ -5,94 +5,26 @@
 # https://rss.lilywhite.cc
 # https://rsshub.pseudo.moe
 # https://rss.cloudnative.love
-# Google News 站点 RSS（用于无官方 RSS 的智库官网）
-GNEWS_CN = "https://news.google.com/rss/search?q=site:{domain}&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"
+from urllib.parse import quote
+
+# Google News 站点 RSS（仅用于确认无官方 RSS 的源；尽量加 when: 降低噪音）
+GNEWS_CN = "https://news.google.com/rss/search?q=site:{domain}+when:30d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"
 GNEWS_US = "https://news.google.com/rss/search?q=site:{domain}+when:7d&hl=en-US&gl=US&ceid=US:en"
 GNEWS = GNEWS_US  # 适用于大多数国家智库官网的 Google News 站点订阅
-GNEWS_SITE = "https://news.google.com/rss/search?q=site:{domain}&hl=en-US&gl=US&ceid=US:en"
+GNEWS_SITE = "https://news.google.com/rss/search?q=site:{domain}+when:30d&hl=en-US&gl=US&ceid=US:en"
+
+
+def gnews_cn(query):
+    """自定义中文 Google News 查询（用于发言人、白皮书、带关键词的智库源）。"""
+    return f"https://news.google.com/rss/search?q={quote(query)}&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"
+
+
+def gnews_en(query):
+    """自定义英文 Google News 查询（用于 IMF/WB/IEA 等报告流）。"""
+    return f"https://news.google.com/rss/search?q={quote(query)}&hl=en-US&gl=US&ceid=US:en"
 
 THINK_TANKS_CONFIG = [
-    # ==================== 中国智库 ====================
-    {
-        "name": "CICIR",
-        "name_cn": "中国现代国际关系研究院",
-        "rss": GNEWS_CN.format(domain="cicir.ac.cn"),
-        "icon": "https://www.cicir.ac.cn/favicon.ico",
-        "category": "中国智库",
-        "country": "中国",
-        "priority": 1,
-        "description": "中国顶级国际关系与安全研究机构"
-    },
-    {
-        "name": "Development Research Center",
-        "name_cn": "国务院发展研究中心",
-        "rss": GNEWS_CN.format(domain="drc.gov.cn"),
-        "icon": "http://www.drc.gov.cn/favicon.ico",
-        "category": "中国智库",
-        "country": "中国",
-        "priority": 1,
-        "description": "中国政府核心决策咨询智库"
-    },
-    {
-        "name": "CASS",
-        "name_cn": "中国社会科学院",
-        "rss": GNEWS_CN.format(domain="cssn.cn"),
-        "icon": "http://www.cssn.cn/favicon.ico",
-        "category": "中国智库",
-        "country": "中国",
-        "priority": 1,
-        "description": "中国哲学社会科学研究最高殿堂"
-    },
-    {
-        "name": "SIIS",
-        "name_cn": "上海国际问题研究院",
-        "rss": GNEWS_CN.format(domain="siis.org.cn"),
-        "icon": "http://www.siis.org.cn/favicon.ico",
-        "category": "中国智库",
-        "country": "中国",
-        "priority": 1,
-        "description": "中国重要外交与地缘政治研究机构"
-    },
-    {
-        "name": "CIIS",
-        "name_cn": "中国国际问题研究院",
-        "rss": GNEWS_CN.format(domain="ciis.org.cn"),
-        "icon": "https://www.ciis.org.cn/favicon.ico",
-        "category": "中国智库",
-        "country": "中国",
-        "priority": 1,
-        "description": "中国外交部直属国际问题研究机构"
-    },
-    {
-        "name": "CCIEE",
-        "name_cn": "中国国际经济交流中心",
-        "rss": GNEWS_CN.format(domain="cciee.org.cn"),
-        "icon": "http://www.cciee.org.cn/favicon.ico",
-        "category": "中国智库",
-        "country": "中国",
-        "priority": 1,
-        "description": "国际经济政策与战略研究"
-    },
-    {
-        "name": "CF40",
-        "name_cn": "中国金融四十人论坛",
-        "rss": GNEWS_CN.format(domain="cf40.com"),
-        "icon": "https://www.cf40.com/favicon.ico",
-        "category": "中国智库",
-        "country": "中国",
-        "priority": 1,
-        "description": "金融与宏观经济政策顶尖智库"
-    },
-    {
-        "name": "Chongyang Institute",
-        "name_cn": "中国人民大学重阳金融研究院",
-        "rss": GNEWS_CN.format(domain="rdcy.ruc.edu.cn"),
-        "icon": "http://www.ruc.edu.cn/favicon.ico",
-        "category": "中国智库",
-        "country": "中国",
-        "priority": 1,
-        "description": "金融、宏观与全球治理研究"
-    },
+    # ==================== 中国：直连 RSS（优先）====================
     {
         "name": "People's Daily Theory",
         "name_cn": "人民网·理论",
@@ -114,6 +46,36 @@ THINK_TANKS_CONFIG = [
         "description": "政策评论与深度观点"
     },
     {
+        "name": "People's Daily Politics",
+        "name_cn": "人民网·时政",
+        "rss": "http://www.people.com.cn/rss/politics.xml",
+        "icon": "http://www.people.com.cn/favicon.ico",
+        "category": "中国智库",
+        "country": "中国",
+        "priority": 1,
+        "description": "中国时政与政策动态直连 RSS"
+    },
+    {
+        "name": "People's Daily World",
+        "name_cn": "人民网·国际",
+        "rss": "http://www.people.com.cn/rss/world.xml",
+        "icon": "http://www.people.com.cn/favicon.ico",
+        "category": "中国智库",
+        "country": "中国",
+        "priority": 1,
+        "description": "国际时事与外交动态直连 RSS"
+    },
+    {
+        "name": "People's Daily Finance",
+        "name_cn": "人民网·财经",
+        "rss": "http://www.people.com.cn/rss/finance.xml",
+        "icon": "http://www.people.com.cn/favicon.ico",
+        "category": "中国智库",
+        "country": "中国",
+        "priority": 2,
+        "description": "宏观经济与财经政策直连 RSS"
+    },
+    {
         "name": "Xinhua World",
         "name_cn": "新华网·国际",
         "rss": "http://www.news.cn/world/news_world.xml",
@@ -122,6 +84,26 @@ THINK_TANKS_CONFIG = [
         "country": "中国",
         "priority": 1,
         "description": "中国国际时事与外交动态"
+    },
+    {
+        "name": "Xinhua Politics",
+        "name_cn": "新华网·时政",
+        "rss": "http://www.news.cn/politics/news_politics.xml",
+        "icon": "http://www.news.cn/favicon.ico",
+        "category": "中国智库",
+        "country": "中国",
+        "priority": 1,
+        "description": "中国时政与政策动态"
+    },
+    {
+        "name": "Xinhua Fortune",
+        "name_cn": "新华网·财经",
+        "rss": "http://www.news.cn/fortune/news_fortune.xml",
+        "icon": "http://www.news.cn/favicon.ico",
+        "category": "中国智库",
+        "country": "中国",
+        "priority": 2,
+        "description": "财经与宏观政策动态"
     },
     {
         "name": "China Daily Opinion",
@@ -134,13 +116,63 @@ THINK_TANKS_CONFIG = [
         "description": "面向国际读者的中国政策评论"
     },
     {
+        "name": "China Daily China",
+        "name_cn": "中国日报·国内",
+        "rss": "http://www.chinadaily.com.cn/rss/china_rss.xml",
+        "icon": "http://www.chinadaily.com.cn/favicon.ico",
+        "category": "中国智库",
+        "country": "中国",
+        "priority": 2,
+        "description": "中国国内政策与治理"
+    },
+    {
+        "name": "China Daily World",
+        "name_cn": "中国日报·国际",
+        "rss": "http://www.chinadaily.com.cn/rss/world_rss.xml",
+        "icon": "http://www.chinadaily.com.cn/favicon.ico",
+        "category": "中国智库",
+        "country": "中国",
+        "priority": 1,
+        "description": "国际事务英文报道直连 RSS"
+    },
+    {
+        "name": "China Daily Biz",
+        "name_cn": "中国日报·商务",
+        "rss": "http://www.chinadaily.com.cn/rss/bizchina_rss.xml",
+        "icon": "http://www.chinadaily.com.cn/favicon.ico",
+        "category": "中国智库",
+        "country": "中国",
+        "priority": 2,
+        "description": "中国商务与经济政策英文直连 RSS"
+    },
+    {
+        "name": "SCMP China",
+        "name_cn": "南华早报·中国",
+        "rss": "https://www.scmp.com/rss/2/feed",
+        "icon": "https://www.scmp.com/favicon.ico",
+        "category": "认知网站",
+        "country": "中国",
+        "priority": 1,
+        "description": "港媒对中国政策与时政的深度报道"
+    },
+    {
+        "name": "SCMP Asia",
+        "name_cn": "南华早报·亚洲",
+        "rss": "https://www.scmp.com/rss/4/feed",
+        "icon": "https://www.scmp.com/favicon.ico",
+        "category": "认知网站",
+        "country": "中国",
+        "priority": 2,
+        "description": "亚洲地缘与政策观察"
+    },
+    {
         "name": "FT Chinese",
         "name_cn": "FT中文网",
         "rss": "http://www.ftchinese.com/rss/news",
         "icon": "http://www.ftchinese.com/favicon.ico",
         "category": "中国智库",
         "country": "中国",
-        "priority": 2,
+        "priority": 1,
         "description": "国际财经与地缘政治中文分析"
     },
     {
@@ -150,13 +182,121 @@ THINK_TANKS_CONFIG = [
         "icon": "https://sinocism.com/favicon.ico",
         "category": "中国智库",
         "country": "中国",
-        "priority": 2,
+        "priority": 1,
         "description": "中国政治与政策英文简报"
+    },
+
+    # ==================== 中国：官方文件 / 原始表态 ====================
+    {
+        "name": "MFA Spokesperson",
+        "name_cn": "外交部发言人",
+        "rss": gnews_cn('"外交部发言人" when:14d'),
+        "icon": "https://www.mfa.gov.cn/favicon.ico",
+        "category": "政策文件",
+        "doc_type": "policy",
+        "domain": "geopolitics",
+        "country": "中国",
+        "priority": 1,
+        "description": "外交部例行记者会与发言人表态（官网无 RSS，精准关键词订阅）"
+    },
+    {
+        "name": "SCIO White Papers",
+        "name_cn": "国新办·白皮书",
+        "rss": gnews_cn('site:scio.gov.cn 白皮书 when:365d'),
+        "icon": "https://www.scio.gov.cn/favicon.ico",
+        "category": "白皮书",
+        "doc_type": "whitepaper",
+        "domain": "geopolitics",
+        "country": "中国",
+        "priority": 1,
+        "description": "国务院新闻办白皮书与官方政策文件"
+    },
+
+    # ==================== 中国智库（无官网 RSS：收紧 GNews）====================
+    {
+        "name": "CICIR",
+        "name_cn": "中国现代国际关系研究院",
+        "rss": gnews_cn('site:cicir.ac.cn (报告 OR 评论 OR 观点 OR 现代院) when:90d'),
+        "icon": "https://www.cicir.ac.cn/favicon.ico",
+        "category": "中国智库",
+        "country": "中国",
+        "priority": 1,
+        "description": "中国顶级国际关系与安全研究机构（官网无 RSS，关键词过滤）"
+    },
+    {
+        "name": "Development Research Center",
+        "name_cn": "国务院发展研究中心",
+        "rss": gnews_cn('site:drc.gov.cn (研究 OR 报告 OR 调研) when:90d'),
+        "icon": "http://www.drc.gov.cn/favicon.ico",
+        "category": "中国智库",
+        "country": "中国",
+        "priority": 1,
+        "description": "中国政府核心决策咨询智库"
+    },
+    {
+        "name": "CASS",
+        "name_cn": "中国社会科学院",
+        "rss": gnews_cn('site:cssn.cn (智库 OR 研究 OR 评论) when:30d'),
+        "icon": "http://www.cssn.cn/favicon.ico",
+        "category": "中国智库",
+        "country": "中国",
+        "priority": 1,
+        "description": "中国哲学社会科学研究最高殿堂"
+    },
+    {
+        "name": "SIIS",
+        "name_cn": "上海国际问题研究院",
+        "rss": gnews_cn('"上海国际问题研究院" OR "Shanghai Institutes for International Studies" when:90d'),
+        "icon": "http://www.siis.org.cn/favicon.ico",
+        "category": "中国智库",
+        "country": "中国",
+        "priority": 1,
+        "description": "中国重要外交与地缘政治研究机构"
+    },
+    {
+        "name": "CIIS",
+        "name_cn": "中国国际问题研究院",
+        "rss": gnews_cn('site:ciis.org.cn when:90d'),
+        "icon": "https://www.ciis.org.cn/favicon.ico",
+        "category": "中国智库",
+        "country": "中国",
+        "priority": 1,
+        "description": "中国外交部直属国际问题研究机构"
+    },
+    {
+        "name": "CCIEE",
+        "name_cn": "中国国际经济交流中心",
+        "rss": gnews_cn('site:cciee.org.cn when:90d'),
+        "icon": "http://www.cciee.org.cn/favicon.ico",
+        "category": "中国智库",
+        "country": "中国",
+        "priority": 1,
+        "description": "国际经济政策与战略研究"
+    },
+    {
+        "name": "CF40",
+        "name_cn": "中国金融四十人论坛",
+        "rss": gnews_cn('(site:cf40.com OR site:cf40.org.cn) when:30d'),
+        "icon": "https://www.cf40.com/favicon.ico",
+        "category": "中国智库",
+        "country": "中国",
+        "priority": 1,
+        "description": "金融与宏观经济政策顶尖智库"
+    },
+    {
+        "name": "Chongyang Institute",
+        "name_cn": "中国人民大学重阳金融研究院",
+        "rss": gnews_cn('(site:rdcy.ruc.edu.cn OR "重阳金融研究院") when:90d'),
+        "icon": "http://www.ruc.edu.cn/favicon.ico",
+        "category": "中国智库",
+        "country": "中国",
+        "priority": 1,
+        "description": "金融、宏观与全球治理研究"
     },
     {
         "name": "Fudan IIS",
         "name_cn": "复旦大学国际问题研究院",
-        "rss": GNEWS_CN.format(domain="iis.fudan.edu.cn"),
+        "rss": gnews_cn('site:iis.fudan.edu.cn when:90d'),
         "icon": "http://www.fudan.edu.cn/favicon.ico",
         "category": "中国智库",
         "country": "中国",
@@ -166,7 +306,7 @@ THINK_TANKS_CONFIG = [
     {
         "name": "PKU IISS",
         "name_cn": "北京大学国际战略研究院",
-        "rss": GNEWS_CN.format(domain="iiss.pku.edu.cn"),
+        "rss": gnews_cn('site:iiss.pku.edu.cn when:90d'),
         "icon": "https://www.pku.edu.cn/favicon.ico",
         "category": "中国智库",
         "country": "中国",
@@ -176,7 +316,7 @@ THINK_TANKS_CONFIG = [
     {
         "name": "China Think Tanks",
         "name_cn": "中国智库网",
-        "rss": GNEWS_CN.format(domain="chinathinktanks.org.cn"),
+        "rss": gnews_cn('site:chinathinktanks.org.cn when:30d'),
         "icon": "http://www.chinathinktanks.org.cn/favicon.ico",
         "category": "中国智库",
         "country": "中国",
@@ -186,32 +326,12 @@ THINK_TANKS_CONFIG = [
     {
         "name": "Caixin",
         "name_cn": "财新网",
-        "rss": GNEWS_CN.format(domain="caixin.com"),
+        "rss": gnews_cn('site:caixin.com when:7d'),
         "icon": "https://www.caixin.com/favicon.ico",
         "category": "中国智库",
         "country": "中国",
-        "priority": 2,
-        "description": "财经与公共政策深度报道"
-    },
-    {
-        "name": "Xinhua Politics",
-        "name_cn": "新华网·时政",
-        "rss": "http://www.news.cn/politics/news_politics.xml",
-        "icon": "http://www.news.cn/favicon.ico",
-        "category": "中国智库",
-        "country": "中国",
-        "priority": 2,
-        "description": "中国时政与政策动态"
-    },
-    {
-        "name": "China Daily China",
-        "name_cn": "中国日报·国内",
-        "rss": "http://www.chinadaily.com.cn/rss/china_rss.xml",
-        "icon": "http://www.chinadaily.com.cn/favicon.ico",
-        "category": "中国智库",
-        "country": "中国",
-        "priority": 2,
-        "description": "中国国内政策与治理"
+        "priority": 1,
+        "description": "财经与公共政策深度报道（官网无公开 RSS，近 7 日站点订阅）"
     },
     # ==================== 北美地区 ====================
     # 美国顶级智库
@@ -1866,22 +1986,22 @@ THINK_TANKS_CONFIG = [
     {
         "name": "World Bank",
         "name_cn": "世界银行",
-        "rss": GNEWS.format(domain="worldbank.org"),
+        "rss": gnews_en('site:worldbank.org (report OR "Working Paper" OR publication OR blog) when:30d'),
         "icon": "https://www.worldbank.org/favicon.ico",
         "category": "国际组织",
         "country": "国际",
         "priority": 1,
-        "description": "全球发展与经济研究"
+        "description": "世界银行报告与工作论文流"
     },
     {
         "name": "International Monetary Fund",
         "name_cn": "国际货币基金组织",
-        "rss": GNEWS.format(domain="imf.org"),
+        "rss": gnews_en('site:imf.org ("Working Paper" OR Blog OR "Staff Discussion" OR "World Economic Outlook") when:30d'),
         "icon": "https://www.imf.org/favicon.ico",
         "category": "国际组织",
         "country": "国际",
         "priority": 1,
-        "description": "全球经济与金融政策"
+        "description": "IMF 工作论文、博客与 WEO 等报告流"
     },
     {
         "name": "United Nations Development Programme",
@@ -1912,6 +2032,79 @@ THINK_TANKS_CONFIG = [
         "country": "国际",
         "priority": 2,
         "description": "欧洲外交与全球民主"
+    },
+
+
+    # ==================== 硬核原始文件 / 数据与机构报告流 ====================
+    {
+        "name": "WTO News",
+        "name_cn": "世界贸易组织",
+        "rss": "https://www.wto.org/library/rss/latest_news_e.xml",
+        "icon": "https://www.wto.org/favicon.ico",
+        "category": "国际组织",
+        "country": "国际",
+        "priority": 1,
+        "description": "WTO 新闻与贸易政策动态（官方 RSS）"
+    },
+    {
+        "name": "UN News",
+        "name_cn": "联合国新闻",
+        "rss": "https://news.un.org/feed/subscribe/en/news/all/rss.xml",
+        "icon": "https://news.un.org/favicon.ico",
+        "category": "国际组织",
+        "country": "国际",
+        "priority": 1,
+        "description": "联合国新闻中心官方 RSS"
+    },
+    {
+        "name": "WHO News",
+        "name_cn": "世界卫生组织",
+        "rss": "https://www.who.int/rss-feeds/news-english.xml",
+        "icon": "https://www.who.int/favicon.ico",
+        "category": "国际组织",
+        "country": "国际",
+        "priority": 2,
+        "description": "WHO 新闻与全球卫生政策"
+    },
+    {
+        "name": "IEA Reports",
+        "name_cn": "国际能源署·报告",
+        "rss": gnews_en('site:iea.org (report OR analysis OR outlook OR "World Energy") when:30d'),
+        "icon": "https://www.iea.org/favicon.ico",
+        "category": "国际组织",
+        "country": "国际",
+        "priority": 1,
+        "description": "IEA 能源报告与展望（官网 RSS 不稳定，报告向查询）"
+    },
+    {
+        "name": "BIS Research",
+        "name_cn": "国际清算银行",
+        "rss": gnews_en('site:bis.org (working paper OR speech OR bulletin OR quarterly) when:30d'),
+        "icon": "https://www.bis.org/favicon.ico",
+        "category": "经济政策",
+        "country": "国际",
+        "priority": 1,
+        "description": "BIS 工作论文、演讲与季报"
+    },
+    {
+        "name": "Federal Reserve Press",
+        "name_cn": "美联储·新闻",
+        "rss": "https://www.federalreserve.gov/feeds/press_all.xml",
+        "icon": "https://www.federalreserve.gov/favicon.ico",
+        "category": "经济政策",
+        "country": "美国",
+        "priority": 1,
+        "description": "美联储新闻稿官方 RSS"
+    },
+    {
+        "name": "ECB Press",
+        "name_cn": "欧洲央行·新闻",
+        "rss": "https://www.ecb.europa.eu/rss/press.html",
+        "icon": "https://www.ecb.europa.eu/favicon.ico",
+        "category": "经济政策",
+        "country": "国际",
+        "priority": 1,
+        "description": "欧洲央行新闻稿官方 RSS"
     },
 
     # ==================== 认知类网站 ====================
@@ -2062,7 +2255,7 @@ THINK_TANKS_CONFIG = [
     {
         "name": "National Bureau of Economic Research",
         "name_cn": "美国国家经济研究局",
-        "rss": "https://www.nber.org/rss.xml",
+        "rss": "https://www.nber.org/rss/new.xml",
         "icon": "https://www.nber.org/favicon.ico",
         "category": "经济政策",
         "country": "美国",
@@ -2103,49 +2296,226 @@ THINK_TANKS_CONFIG = [
 ]
 
 
+# ---------------------------------------------------------------------------
+# 补充源（财报 / 研报 / 白皮书 / 政策 / 论文 / 数据 / 公告 / 媒体）
+# ---------------------------------------------------------------------------
+from sources_extra import EXTRA_SOURCES
+
+_EXISTING_NAMES = {s["name"] for s in THINK_TANKS_CONFIG}
+for _src in EXTRA_SOURCES:
+    if _src["name"] not in _EXISTING_NAMES:
+        THINK_TANKS_CONFIG.append(_src)
+
+
 # 按国家/地区统计
 def get_country_stats():
     stats = {}
     for tank in THINK_TANKS_CONFIG:
-        country = tank.get('country', '其他')
-        if country not in stats:
-            stats[country] = 0
-        stats[country] += 1
+        country = tank.get("country", "其他")
+        stats[country] = stats.get(country, 0) + 1
     return stats
 
 
-SOURCE_TYPE_LABELS = {
-    'think_tank': '智库',
-    'international': '国际组织',
-    'media': '认知媒体',
-    'journal': '学术期刊',
-    'policy': '经济政策',
+# ---------- 文体（文档类型）----------
+DOC_TYPE_LABELS = {
+    "think_tank": "智库",
+    "earnings": "财报",
+    "research": "研报",
+    "whitepaper": "白皮书",
+    "policy": "政策文件",
+    "paper": "科学论文",
+    "media": "媒体",
+    "data": "数据发布",
+    "announcement": "公司公告",
 }
 
+# 兼容旧字段名
+SOURCE_TYPE_LABELS = DOC_TYPE_LABELS
 
+# ---------- 领域 ----------
+DOMAIN_LABELS = {
+    "geopolitics": "地缘",
+    "industry": "产业",
+    "macro": "宏观金融",
+    "tech": "科技",
+    "energy": "能源气候",
+    "health": "卫生健康",
+    "general": "综合",
+}
+
+# 本周议题词表
+TOPIC_LEXICON = [
+    {"id": "taiwan", "label": "台海", "patterns": ["台海", "两岸", "台湾海峡", "Taiwan Strait", "Taiwan"]},
+    {"id": "sanctions", "label": "制裁", "patterns": ["制裁", "sanctions", "Sanction", "出口管制", "export control"]},
+    {"id": "ai", "label": "AI", "patterns": ["人工智能", "大模型", "生成式", "ChatGPT", "generative AI", "AI", "A.I."]},
+    {"id": "ukraine", "label": "俄乌", "patterns": ["乌克兰", "俄乌", "Ukraine", "Russia-Ukraine", "克里米亚"]},
+    {"id": "middle_east", "label": "中东", "patterns": ["加沙", "以色列", "伊朗", "哈马斯", "中东", "Gaza", "Israel", "Iran", "Hamas"]},
+    {"id": "south_china_sea", "label": "南海", "patterns": ["南海", "南中国海", "South China Sea"]},
+    {"id": "trade", "label": "贸易", "patterns": ["关税", "贸易战", "供应链", "关税壁垒", "tariff", "trade war", "supply chain"]},
+    {"id": "climate", "label": "气候", "patterns": ["气候", "碳中和", "减排", "climate", "net zero", "decarbon"]},
+    {"id": "energy", "label": "能源", "patterns": ["能源", "石油", "天然气", "OPEC", "energy", "oil price", "LNG"]},
+    {"id": "chip", "label": "芯片", "patterns": ["芯片", "半导体", "晶圆", "semiconductor", "chip", "TSMC", "ASML"]},
+    {"id": "nato", "label": "北约", "patterns": ["北约", "NATO"]},
+    {"id": "fed", "label": "美联储", "patterns": ["美联储", "降息", "加息", "Federal Reserve", "interest rate", "FOMC"]},
+    {"id": "eu", "label": "欧洲", "patterns": ["欧盟", "欧洲央行", "European Union", "ECB", "Brussels"]},
+    {"id": "korea", "label": "半岛", "patterns": ["朝核", "朝鲜", "半岛", "North Korea", "Kim Jong"]},
+    {"id": "asean", "label": "东盟", "patterns": ["东盟", "东南亚", "ASEAN", "Southeast Asia"]},
+    {"id": "india", "label": "印度", "patterns": ["印度", "印太", "India", "Indo-Pacific"]},
+    {"id": "cyber", "label": "网络", "patterns": ["网络安全", "网络攻击", "cyber", "ransomware", "黑客"]},
+    {"id": "space", "label": "太空", "patterns": ["太空", "航天", "卫星", "space force", "satellite"]},
+]
+
+
+def get_doc_type(feed_or_category):
+    """解析文体。可传入源 dict，或旧的 category 字符串。"""
+    if isinstance(feed_or_category, dict):
+        explicit = feed_or_category.get("doc_type") or feed_or_category.get("source_type")
+        if explicit in DOC_TYPE_LABELS:
+            return explicit
+        category = feed_or_category.get("category", "其他")
+        name = (feed_or_category.get("name") or "").lower()
+        name_cn = feed_or_category.get("name_cn") or ""
+    else:
+        category = feed_or_category or "其他"
+        name = ""
+        name_cn = ""
+
+    # 显式 category 映射
+    if category in ("政策文件", "官方文件"):
+        return "policy"
+    if category in ("财报",):
+        return "earnings"
+    if category in ("公司公告",):
+        return "announcement"
+    if category in ("研报", "经济政策"):
+        return "research"
+    if category in ("白皮书", "国际组织"):
+        return "whitepaper"
+    if category in ("科学论文", "学术期刊"):
+        return "paper"
+    if category in ("数据发布",):
+        return "data"
+    if category in ("媒体", "认知网站"):
+        return "media"
+
+    # 新闻机构更像媒体
+    media_hints = (
+        "people", "xinhua", "china daily", "ft chinese", "scmp", "caixin",
+        "sinocism", "reuters", "techcrunch", "verge", "wired", "quartz",
+        "project syndicate", "foreign affairs", "foreign policy",
+    )
+    if any(h in name for h in media_hints) or any(
+        h in name_cn for h in ("人民网", "新华", "中国日报", "财新", "南华")
+    ):
+        return "media"
+
+    # 期刊
+    if any(h in name for h in ("nature", "science", "lancet", "nejm", "pnas", "arxiv", "biorxiv")):
+        return "paper"
+
+    # 央行/数据机构
+    if any(h in name for h in ("federal reserve", "ecb", "bls", "bea", "nber", "bis")):
+        if "press" in name or "news" in name:
+            return "announcement" if "sec" in name else "data"
+        return "research"
+
+    if category == "国际组织":
+        return "whitepaper"
+    return "think_tank"
+
+
+def get_domain(feed_or_category):
+    """解析领域。"""
+    if isinstance(feed_or_category, dict):
+        explicit = feed_or_category.get("domain")
+        if explicit in DOMAIN_LABELS:
+            return explicit
+        category = feed_or_category.get("category", "")
+        country = feed_or_category.get("country", "")
+        name = (feed_or_category.get("name") or "").lower()
+        desc = (feed_or_category.get("description") or "") + category
+    else:
+        category = feed_or_category or ""
+        country = ""
+        name = ""
+        desc = category
+
+    text = f"{name} {desc} {category}".lower()
+    if any(k in text for k in ("health", "lancet", "nejm", "biorxiv", "医学", "卫生", "疫情")):
+        return "health"
+    if any(k in text for k in ("energy", "iea", "oil", "气候", "碳", "ipcc", "climate")):
+        return "energy"
+    if any(k in text for k in ("arxiv", "ai", "tech", "半导体", "芯片", "science", "nature", "pnas", "verge", "techcrunch")):
+        return "tech"
+    if any(k in text for k in ("fed", "imf", "world bank", "oecd", "nber", "bls", "bea", "宏观", "金融", "econ", "piie", "cf40")):
+        return "macro"
+    if any(k in text for k in ("industry", "mckinsey", "deloitte", "miit", "产业", "制造", "sec 8-k", "cninfo", "财报")):
+        return "industry"
+    if category in ("经济政策", "数据发布", "研报", "财报"):
+        return "macro"
+    if category in ("科学论文", "学术期刊"):
+        return "tech"
+    if category in ("白皮书",) and "气候" in desc:
+        return "energy"
+    if category in ("媒体", "国际媒体", "新闻"):
+        return "general"
+    if "智库" in category or category in ("政策文件", "官方文件"):
+        return "geopolitics"
+    return "general"
+
+
+def get_doc_type_label(feed_or_category):
+    return DOC_TYPE_LABELS.get(get_doc_type(feed_or_category), "智库")
+
+
+def get_domain_label(feed_or_category):
+    return DOMAIN_LABELS.get(get_domain(feed_or_category), "综合")
+
+
+# 兼容旧 API
 def get_source_type(category):
-    """将配置中的 category 映射为来源类型（与国家级智库标签解耦）。"""
-    if category == '国际组织':
-        return 'international'
-    if category == '认知网站':
-        return 'media'
-    if category == '学术期刊':
-        return 'journal'
-    if category == '经济政策':
-        return 'policy'
-    return 'think_tank'
+    return get_doc_type(category)
 
 
 def get_source_type_label(category):
-    return SOURCE_TYPE_LABELS[get_source_type(category)]
+    return get_doc_type_label(category)
 
 
-# 按类别统计
 def get_category_stats():
     stats = {}
     for tank in THINK_TANKS_CONFIG:
-        category = tank.get('category', '其他')
-        if category not in stats:
-            stats[category] = 0
-        stats[category] += 1
+        category = tank.get("category", "其他")
+        stats[category] = stats.get(category, 0) + 1
     return stats
+
+
+def get_doc_type_stats():
+    stats = {}
+    for tank in THINK_TANKS_CONFIG:
+        dt = get_doc_type(tank)
+        stats[dt] = stats.get(dt, 0) + 1
+    return stats
+
+
+def get_domain_stats():
+    stats = {}
+    for tank in THINK_TANKS_CONFIG:
+        d = get_domain(tank)
+        stats[d] = stats.get(d, 0) + 1
+    return stats
+
+
+def enrich_source(feed):
+    """为源配置补全文体/领域字段（不改原 dict 引用副作用：会写回）。"""
+    feed["doc_type"] = get_doc_type(feed)
+    feed["doc_type_label"] = DOC_TYPE_LABELS[feed["doc_type"]]
+    feed["domain"] = get_domain(feed)
+    feed["domain_label"] = DOMAIN_LABELS[feed["domain"]]
+    # 兼容旧前端字段
+    feed["source_type"] = feed["doc_type"]
+    feed["source_type_label"] = feed["doc_type_label"]
+    return feed
+
+
+for _feed in THINK_TANKS_CONFIG:
+    enrich_source(_feed)

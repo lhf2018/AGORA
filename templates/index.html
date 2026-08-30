@@ -1,584 +1,398 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" class="h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agora · 全球智库简报</title>
+    <title>Agora</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        display: ['Syne', 'Noto Sans SC', 'sans-serif'],
+                        sans: ['Noto Sans SC', 'system-ui', 'sans-serif'],
+                    },
+                    colors: {
+                        ink: {
+                            950: '#07080a',
+                            900: '#0c0e12',
+                            800: '#14171d',
+                            700: '#1c2129',
+                            600: '#2a313c',
+                        },
+                        mist: {
+                            50: '#f4f1ea',
+                            100: '#e7e2d6',
+                            300: '#b7b0a2',
+                            400: '#8f8778',
+                            500: '#6e675b',
+                        },
+                        brass: {
+                            DEFAULT: '#c6a15b',
+                            dim: '#9a7a3d',
+                            soft: 'rgba(198, 161, 91, 0.14)',
+                        },
+                    },
+                    boxShadow: {
+                        panel: '0 24px 60px rgba(0,0,0,0.45)',
+                        lift: '0 10px 30px rgba(0,0,0,0.28)',
+                    },
+                    animation: {
+                        'fade-up': 'fadeUp 0.35s ease both',
+                    },
+                    keyframes: {
+                        fadeUp: {
+                            '0%': { opacity: '0', transform: 'translateY(8px)' },
+                            '100%': { opacity: '1', transform: 'none' },
+                        },
+                    },
+                },
+            },
+        };
+    </script>
     <style>
-        :root {
-            --bg: #0f1419;
-            --bg-soft: #161d26;
-            --surface: rgba(255, 255, 255, 0.04);
-            --surface-hover: rgba(255, 255, 255, 0.07);
-            --border: rgba(255, 255, 255, 0.08);
-            --text: #e8edf2;
-            --text-muted: #8b9aab;
-            --accent: #3dd6c6;
-            --accent-2: #5b8def;
-            --accent-glow: rgba(61, 214, 198, 0.25);
-            --danger: #ff6b6b;
-            --radius: 16px;
-            --shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
-        }
-
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-
         body {
-            font-family: 'Noto Sans SC', 'DM Sans', -apple-system, sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            min-height: 100vh;
-            line-height: 1.5;
-        }
-
-        body::before {
-            content: '';
-            position: fixed;
-            inset: 0;
             background:
-                radial-gradient(ellipse 80% 50% at 20% -10%, rgba(61, 214, 198, 0.12), transparent),
-                radial-gradient(ellipse 60% 40% at 90% 10%, rgba(91, 141, 239, 0.1), transparent),
-                radial-gradient(ellipse 50% 30% at 50% 100%, rgba(61, 214, 198, 0.06), transparent);
-            pointer-events: none;
-            z-index: 0;
+                radial-gradient(ellipse 80% 50% at 10% -10%, rgba(198,161,91,0.12), transparent 55%),
+                radial-gradient(ellipse 60% 40% at 100% 0%, rgba(120,140,160,0.08), transparent 50%),
+                #07080a;
         }
-
-        .container {
-            max-width: 1280px;
-            margin: 0 auto;
-            padding: 2rem 1.25rem 4rem;
-            position: relative;
-            z-index: 1;
-        }
-
-        /* Header */
-        .hero {
-            text-align: center;
-            margin-bottom: 2.5rem;
-        }
-
-        .hero-badge {
+        .chip {
             display: inline-flex;
             align-items: center;
-            gap: 0.4rem;
-            padding: 0.35rem 0.9rem;
-            border-radius: 999px;
-            background: var(--surface);
-            border: 1px solid var(--border);
+            gap: 0.3rem;
+            border: 1px solid rgba(244,241,234,0.1);
+            background: rgba(255,255,255,0.03);
+            color: #8f8778;
             font-size: 0.75rem;
-            color: var(--accent);
-            margin-bottom: 1rem;
-            letter-spacing: 0.02em;
-        }
-
-        .hero h1 {
-            font-family: 'DM Sans', 'Noto Sans SC', sans-serif;
-            font-size: clamp(2rem, 5vw, 3rem);
-            font-weight: 700;
-            letter-spacing: 0.06em;
-            text-transform: uppercase;
-            background: linear-gradient(135deg, #fff 0%, var(--accent) 50%, var(--accent-2) 100%);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-            margin-bottom: 0.5rem;
-        }
-
-        .hero-tagline {
-            color: var(--text-muted);
-            font-size: 0.8125rem;
-            font-weight: 400;
-            letter-spacing: 0.02em;
-            max-width: 520px;
-            margin: 0 auto;
-        }
-
-        /* Stats */
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 1rem;
-            margin-bottom: 1.75rem;
-        }
-
-        .stat-card {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 1.1rem 1rem;
-            text-align: center;
-            backdrop-filter: blur(12px);
-            transition: border-color 0.2s, transform 0.2s;
-        }
-
-        .stat-card:hover {
-            border-color: rgba(61, 214, 198, 0.3);
-            transform: translateY(-2px);
-        }
-
-        .stat-number {
-            font-family: 'DM Sans', sans-serif;
-            font-size: 1.75rem;
-            font-weight: 700;
-            color: var(--accent);
-        }
-
-        .stat-label {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            margin-top: 0.25rem;
-        }
-
-        /* Filters */
-        .panel {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 1.1rem 1.25rem;
-            margin-bottom: 1rem;
-            backdrop-filter: blur(12px);
-        }
-
-        .panel-title {
-            font-size: 0.8rem;
-            font-weight: 600;
-            color: var(--text-muted);
-            margin-bottom: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-        }
-
-        .filter-scroll {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.45rem;
-            max-height: 120px;
-            overflow-y: auto;
-            padding-right: 0.25rem;
-        }
-
-        .filter-scroll::-webkit-scrollbar { width: 4px; }
-        .filter-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-
-        .filter-btn {
-            background: var(--bg-soft);
-            border: 1px solid var(--border);
-            color: var(--text-muted);
-            padding: 0.35rem 0.85rem;
+            line-height: 1.2;
+            padding: 0.35rem 0.7rem;
             border-radius: 999px;
-            font-size: 0.78rem;
+            transition: all 0.15s ease;
             cursor: pointer;
-            transition: all 0.18s ease;
-            white-space: nowrap;
-        }
-
-        .filter-btn:hover {
-            color: var(--text);
-            border-color: rgba(61, 214, 198, 0.35);
-            background: var(--surface-hover);
-        }
-
-        .filter-btn.active {
-            background: linear-gradient(135deg, rgba(61, 214, 198, 0.2), rgba(91, 141, 239, 0.15));
-            border-color: var(--accent);
-            color: var(--accent);
-            box-shadow: 0 0 20px var(--accent-glow);
-        }
-
-        /* Toolbar */
-        .toolbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 0.75rem;
-            margin: 1.5rem 0 1rem;
-        }
-
-        .result-info {
-            font-size: 0.85rem;
-            color: var(--text-muted);
-        }
-
-        .result-info strong {
-            color: var(--text);
-            font-weight: 600;
-        }
-
-        /* Loading */
-        .loading-panel {
-            text-align: center;
-            padding: 4rem 1rem;
-        }
-
-        .spinner {
-            width: 48px;
-            height: 48px;
-            border: 3px solid var(--border);
-            border-top-color: var(--accent);
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            margin: 0 auto 1.25rem;
-        }
-
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        .loading-text {
-            font-size: 1rem;
-            color: var(--text);
-            margin-bottom: 0.35rem;
-        }
-
-        .loading-sub {
-            font-size: 0.85rem;
-            color: var(--text-muted);
-        }
-
-        .progress-bar {
-            width: min(320px, 80%);
-            height: 4px;
-            background: var(--border);
-            border-radius: 4px;
-            margin: 1.25rem auto 0;
-            overflow: hidden;
-        }
-
-        .progress-bar span {
-            display: block;
-            height: 100%;
-            width: 30%;
-            background: linear-gradient(90deg, var(--accent), var(--accent-2));
-            border-radius: 4px;
-            animation: progress 1.5s ease-in-out infinite;
-        }
-
-        @keyframes progress {
-            0% { transform: translateX(-100%); width: 30%; }
-            50% { width: 60%; }
-            100% { transform: translateX(350%); width: 30%; }
-        }
-
-        /* Skeleton */
-        .skeleton-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 1rem;
-        }
-
-        .skeleton-card {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 1.25rem;
-            animation: pulse 1.5s ease-in-out infinite;
-        }
-
-        .skeleton-line {
-            height: 12px;
-            background: var(--border);
-            border-radius: 6px;
-            margin-bottom: 0.6rem;
-        }
-
-        .skeleton-line.short { width: 40%; }
-        .skeleton-line.medium { width: 70%; }
-        .skeleton-line.long { width: 100%; height: 16px; }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-
-        /* Articles */
-        .articles-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 1rem;
-        }
-
-        .article-card {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 1.25rem;
-            transition: all 0.25s ease;
-            display: flex;
-            flex-direction: column;
-            backdrop-filter: blur(8px);
-            animation: fadeIn 0.35s ease backwards;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(8px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .article-card:hover {
-            border-color: rgba(61, 214, 198, 0.35);
-            transform: translateY(-3px);
-            box-shadow: var(--shadow);
-        }
-
-        .card-header {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-            margin-bottom: 0.85rem;
-        }
-
-        .source-icon {
-            width: 26px;
-            height: 26px;
-            border-radius: 6px;
-            object-fit: contain;
-            background: var(--bg-soft);
-        }
-
-        .source-name {
-            font-size: 0.72rem;
-            font-weight: 600;
-            color: var(--accent);
-            background: rgba(61, 214, 198, 0.1);
-            padding: 0.15rem 0.55rem;
-            border-radius: 999px;
-        }
-
-        .country-badge, .type-badge {
-            font-size: 0.65rem;
-            padding: 0.12rem 0.45rem;
-            border-radius: 999px;
-            background: var(--bg-soft);
-            color: var(--text-muted);
-            border: 1px solid var(--border);
-        }
-
-        .type-badge {
-            color: var(--accent-2);
-            border-color: rgba(91, 141, 239, 0.35);
-            background: rgba(91, 141, 239, 0.1);
-        }
-
-        .filters-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
-            margin-bottom: 1rem;
-        }
-
-        @media (max-width: 768px) {
-            .filters-grid { grid-template-columns: 1fr; }
-        }
-
-        .panel-country .filter-btn.active {
-            background: linear-gradient(135deg, rgba(61, 214, 198, 0.2), rgba(61, 214, 198, 0.08));
-            border-color: var(--accent);
-            color: var(--accent);
-        }
-
-        .panel-type .filter-btn.active {
-            background: linear-gradient(135deg, rgba(91, 141, 239, 0.22), rgba(91, 141, 239, 0.08));
-            border-color: var(--accent-2);
-            color: var(--accent-2);
-            box-shadow: 0 0 20px rgba(91, 141, 239, 0.2);
-        }
-
-        .article-title {
-            font-size: 0.95rem;
-            font-weight: 600;
-            line-height: 1.55;
-            flex: 1;
-        }
-
-        .article-title a {
-            color: var(--text);
-            text-decoration: none;
-            transition: color 0.2s;
-        }
-
-        .article-title a:hover { color: var(--accent); }
-
-        .article-meta {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 1rem;
-            padding-top: 0.85rem;
-            border-top: 1px solid var(--border);
-            font-size: 0.72rem;
-            color: var(--text-muted);
-        }
-
-        .read-link {
-            color: var(--accent-2);
-            text-decoration: none;
-            font-weight: 500;
-            transition: opacity 0.2s;
-        }
-
-        .read-link:hover { opacity: 0.8; }
-
-        /* Pagination */
-        .pagination {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 0.35rem;
-            margin-top: 2rem;
-            flex-wrap: wrap;
-        }
-
-        .page-btn {
-            min-width: 38px;
-            height: 38px;
-            padding: 0 0.5rem;
-            border: 1px solid var(--border);
-            background: var(--surface);
-            color: var(--text-muted);
-            border-radius: 10px;
-            font-size: 0.85rem;
-            cursor: pointer;
-            transition: all 0.18s;
             font-family: inherit;
         }
-
-        .page-btn:hover:not(:disabled) {
-            border-color: var(--accent);
-            color: var(--accent);
-            background: var(--surface-hover);
-        }
-
-        .page-btn.active {
-            background: linear-gradient(135deg, rgba(61, 214, 198, 0.25), rgba(91, 141, 239, 0.2));
-            border-color: var(--accent);
-            color: var(--accent);
+        .chip:hover { color: #f4f1ea; border-color: rgba(244,241,234,0.22); }
+        .chip.active {
+            color: #07080a;
+            background: #c6a15b;
+            border-color: #c6a15b;
             font-weight: 600;
         }
-
-        .page-btn:disabled {
-            opacity: 0.35;
-            cursor: not-allowed;
+        .chip.hot:not(.active) { border-color: rgba(198,161,91,0.35); color: #c6a15b; }
+        .chip .count { opacity: 0.65; font-variant-numeric: tabular-nums; }
+        .tag-pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.15rem 0.5rem;
+            border-radius: 999px;
+            background: rgba(198,161,91,0.12);
+            color: #c6a15b;
+            font-size: 0.7rem;
+            margin-right: 0.3rem;
         }
-
-        .page-ellipsis {
-            color: var(--text-muted);
-            padding: 0 0.25rem;
-            font-size: 0.85rem;
+        #healthBody:not(.open) { display: none; }
+        #healthBody.open { display: block; }
+        .spinner {
+            width: 28px; height: 28px; margin: 0 auto 0.75rem;
+            border: 2px solid rgba(244,241,234,0.12);
+            border-top-color: #c6a15b;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
         }
-
-        footer {
-            margin-top: 3rem;
-            text-align: center;
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            line-height: 1.8;
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .skeleton-line {
+            height: 0.65rem; border-radius: 4px;
+            background: linear-gradient(90deg, rgba(255,255,255,0.04), rgba(255,255,255,0.09), rgba(255,255,255,0.04));
+            background-size: 200% 100%;
+            animation: shimmer 1.2s ease infinite;
         }
-
-        @media (max-width: 768px) {
-            .stats { grid-template-columns: repeat(2, 1fr); }
-            .container { padding: 1.25rem 1rem 3rem; }
-        }
+        @keyframes shimmer { to { background-position: -200% 0; } }
+        select option, select optgroup { background: #14171d; color: #f4f1ea; }
     </style>
 </head>
-<body>
-<div class="container">
-    <header class="hero">
-        <div class="hero-badge">🌍 200 信息源 · 40+ 国家</div>
-        <h1>Agora</h1>
-        <p class="hero-tagline">全球智库与政策研究机构 RSS 聚合</p>
+<body class="h-full font-sans text-mist-50 antialiased">
+<div class="relative mx-auto max-w-6xl px-4 pb-16 pt-6 sm:px-6 lg:px-8">
+
+    <!-- Top bar -->
+    <header class="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+        <div class="flex items-end gap-6">
+            <h1 class="font-display text-5xl font-bold leading-none tracking-[0.04em] text-mist-50 sm:text-6xl">AGORA</h1>
+            <nav class="mb-1.5 flex gap-1 rounded-full border border-white/10 bg-ink-800/70 p-1 backdrop-blur" aria-label="视图">
+                <button type="button" data-view="timeline" class="view-btn rounded-full px-3.5 py-1.5 text-xs font-medium text-mist-50 bg-brass shadow-sm">认知</button>
+                <button type="button" data-view="agenda" class="view-btn rounded-full px-3.5 py-1.5 text-xs font-medium text-mist-400 hover:text-mist-100">财报专栏</button>
+                <button type="button" data-view="library" class="view-btn rounded-full px-3.5 py-1.5 text-xs font-medium text-mist-400 hover:text-mist-100">收藏</button>
+            </nav>
+        </div>
+        <div class="flex flex-wrap items-center gap-x-5 gap-y-1 font-display text-[11px] uppercase tracking-[0.16em] text-mist-400">
+            <span><em id="totalCount" class="not-italic text-mist-100">—</em> 篇</span>
+            <span><em id="sourceCount" class="not-italic text-mist-100">—</em> 源</span>
+            <span><em id="domainCount" class="not-italic text-mist-100">—</em> 域</span>
+            <span id="updateTime" class="text-brass">—</span>
+        </div>
     </header>
 
-    <div class="stats">
-        <div class="stat-card">
-            <div class="stat-number" id="totalCount">—</div>
-            <div class="stat-label">匹配文章</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-number" id="sourceCount">—</div>
-            <div class="stat-label">信息来源</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-number" id="countryCount">—</div>
-            <div class="stat-label">覆盖国家</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-number" id="updateTime">—</div>
-            <div class="stat-label">最后更新</div>
-        </div>
-    </div>
+    <!-- Timeline / Library -->
+    <div id="feedWrap">
+        <section class="mb-6 overflow-hidden rounded-2xl border border-white/10 bg-ink-800/60 shadow-panel backdrop-blur-md">
+            <div class="border-b border-white/5 px-4 py-3 sm:px-5">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <input type="search" id="searchInput" placeholder="搜索标题"
+                           class="w-full flex-1 rounded-xl border border-white/10 bg-ink-900/80 px-3.5 py-2.5 text-sm text-mist-50 placeholder:text-mist-500 outline-none transition focus:border-brass/50 focus:ring-1 focus:ring-brass/30">
+                    <div class="flex items-center gap-2">
+                        <div id="activeSummary" class="min-h-[1.25rem] flex-1 text-xs text-mist-400">全部</div>
+                        <button type="button" id="resetFilters" disabled
+                                class="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-mist-400 transition enabled:hover:border-brass/40 enabled:hover:text-brass disabled:opacity-30">清除</button>
+                    </div>
+                </div>
+            </div>
 
-    <div class="filters-grid">
-        <div class="panel panel-country">
-            <div class="panel-title">国家 / 地区</div>
-            <div class="filter-scroll" id="countryFilter">
-                <button class="filter-btn active" data-country="all">全部</button>
+            <div class="space-y-3.5 px-4 py-4 sm:px-5">
+                <div class="grid gap-2 sm:grid-cols-[3.5rem_1fr] sm:items-start">
+                    <div class="pt-1.5 text-[11px] uppercase tracking-[0.14em] text-mist-500">时间</div>
+                    <div class="flex flex-wrap gap-1.5" id="timeFilter"></div>
+                </div>
+                <div class="grid hidden gap-2 sm:grid-cols-[3.5rem_1fr] sm:items-start" id="shelfRow">
+                    <div class="pt-1.5 text-[11px] uppercase tracking-[0.14em] text-mist-500">状态</div>
+                    <div class="flex flex-wrap gap-1.5" id="shelfFilter"></div>
+                </div>
+                <div class="grid gap-2 sm:grid-cols-[3.5rem_1fr] sm:items-start" id="domainRow">
+                    <div class="pt-1.5 text-[11px] uppercase tracking-[0.14em] text-mist-500">领域</div>
+                    <div class="flex flex-wrap gap-1.5" id="domainFilter"></div>
+                </div>
+                <div class="grid gap-2 sm:grid-cols-[3.5rem_1fr] sm:items-start" id="typeRow">
+                    <div class="pt-1.5 text-[11px] uppercase tracking-[0.14em] text-mist-500">文体</div>
+                    <div class="flex flex-wrap gap-1.5" id="typeFilter"></div>
+                </div>
+                <div class="grid gap-2 sm:grid-cols-[3.5rem_1fr] sm:items-center" id="countryRow">
+                    <div class="text-[11px] uppercase tracking-[0.14em] text-mist-500">国家</div>
+                    <select id="countrySelect" aria-label="国家"
+                            class="max-w-xs rounded-xl border border-white/10 bg-ink-900/80 px-3 py-2 text-sm text-mist-100 outline-none focus:border-brass/50">
+                        <option value="all">全部</option>
+                    </select>
+                </div>
+                <div class="grid gap-2 sm:grid-cols-[3.5rem_1fr] sm:items-start" id="topicRow">
+                    <div class="pt-1.5 text-[11px] uppercase tracking-[0.14em] text-mist-500">议题</div>
+                    <div class="flex flex-wrap gap-1.5" id="topicsCloud"><span class="text-xs text-mist-500">—</span></div>
+                </div>
+            </div>
+
+            <div class="border-t border-white/5 px-4 py-2 sm:px-5">
+                <button type="button" id="healthToggle" class="flex w-full items-center justify-between py-1 text-left text-xs text-mist-500 hover:text-mist-300">
+                    <span>源状态</span>
+                    <span id="healthPills" class="flex gap-2 font-normal"></span>
+                </button>
+                <div id="healthBody" class="overflow-x-auto pb-3 pt-2">
+                    <table class="w-full min-w-[640px] text-left text-xs text-mist-400">
+                        <thead class="text-mist-500">
+                            <tr class="border-b border-white/5">
+                                <th class="py-2 font-medium">状态</th>
+                                <th class="py-2 font-medium">来源</th>
+                                <th class="py-2 font-medium">成功</th>
+                                <th class="py-2 font-medium">失败</th>
+                                <th class="py-2 font-medium">噪音</th>
+                                <th class="py-2 font-medium">最近</th>
+                                <th class="py-2 font-medium">说明</th>
+                            </tr>
+                        </thead>
+                        <tbody id="healthTableBody">
+                            <tr><td colspan="7" class="py-3">…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <div class="mb-3 flex items-center justify-between">
+            <div id="resultInfo" class="font-display text-[11px] tracking-[0.12em] text-mist-500"></div>
+        </div>
+
+        <div id="articlesContainer">
+            <div class="flex flex-col items-center justify-center py-20 text-mist-400">
+                <div class="spinner"></div>
+                <div class="text-sm">加载中</div>
             </div>
         </div>
-
-        <div class="panel panel-type">
-            <div class="panel-title">来源类型</div>
-            <div class="filter-scroll" id="typeFilter">
-                <button class="filter-btn active" data-source-type="all">全部</button>
-            </div>
-        </div>
+        <nav id="pagination" class="mt-8 hidden flex-wrap items-center justify-center gap-1.5"></nav>
     </div>
 
-    <div class="toolbar">
-        <div class="result-info" id="resultInfo">正在加载...</div>
+    <!-- Agenda -->
+    <div id="calendarWrap" class="hidden">
+        <section class="mb-5 rounded-2xl border border-white/10 bg-ink-800/60 p-4 shadow-panel backdrop-blur-md sm:p-5">
+            <div class="mb-4 flex flex-wrap gap-1.5" id="calTimeFilter"></div>
+            <div class="flex flex-wrap gap-1.5" id="calCompanies"></div>
+        </section>
+        <div id="calendarBody"></div>
     </div>
-
-    <div id="articlesContainer">
-        <div class="loading-panel">
-            <div class="spinner"></div>
-            <div class="loading-text">正在聚合全球智库文章</div>
-            <div class="loading-sub">首次加载约需 1–2 分钟，后台抓取完成后自动显示</div>
-            <div class="progress-bar"><span></span></div>
-        </div>
-    </div>
-
-    <nav class="pagination" id="pagination" style="display:none;"></nav>
-
-    <footer>
-        基于官方 RSS 与 Google News 站点订阅聚合 · 数据缓存 10 分钟 · 分页加载避免卡顿<br>
-        涵盖美国、中国、英国、德国、日本、韩国、印度、巴西及国际组织等全球智库
-    </footer>
 </div>
 
 <script>
     const PER_PAGE = 24;
-    let allSources = [];
-    let currentSourceType = 'all';
-    let currentCountry = 'all';
-    let currentPage = 1;
-    let paginationMeta = null;
-    let pollTimer = null;
+    const PRIORITY_COUNTRIES = ['中国', '美国', '国际', '英国', '德国', '法国', '日本', '韩国', '印度', '欧盟'];
 
+    let currentSourceType = 'all';
+    let currentDomain = 'all';
+    let currentDays = 'all';
+    let currentCountry = 'all';
+    let currentTopic = 'all';
+    let currentTopicLabel = '';
+    let currentQuery = '';
+    let currentShelf = 'all';
+    let currentView = 'timeline';
+    let currentPage = 1;
+    let pollTimer = null;
+    let topicsLoaded = false;
+    let topicOptions = [];
+    let searchTimer = null;
+    let healthLoaded = false;
+    let shelfPool = null;
+    let shelfPoolKey = '';
+    let calDays = '30';
+    let calCompany = 'all';
+
+    const STORE_KEY = 'agora.reading.v1';
     const container = document.getElementById('articlesContainer');
     const paginationEl = document.getElementById('pagination');
     const totalCountSpan = document.getElementById('totalCount');
     const sourceCountSpan = document.getElementById('sourceCount');
-    const countryCountSpan = document.getElementById('countryCount');
+    const domainCountSpan = document.getElementById('domainCount');
     const updateTimeSpan = document.getElementById('updateTime');
     const resultInfo = document.getElementById('resultInfo');
+    const countrySelect = document.getElementById('countrySelect');
+    const resetBtn = document.getElementById('resetFilters');
+    const searchInput = document.getElementById('searchInput');
+    const healthToggle = document.getElementById('healthToggle');
+    const healthBody = document.getElementById('healthBody');
+    const healthPills = document.getElementById('healthPills');
+    const healthTableBody = document.getElementById('healthTableBody');
+    const feedWrap = document.getElementById('feedWrap');
+    const calendarWrap = document.getElementById('calendarWrap');
+    const calendarBody = document.getElementById('calendarBody');
+    const calCompaniesEl = document.getElementById('calCompanies');
+
+    const DOC_TYPES = [
+        { id: 'all', label: '全部' },
+        { id: 'think_tank', label: '智库' },
+        { id: 'earnings', label: '财报' },
+        { id: 'research', label: '研报' },
+        { id: 'whitepaper', label: '白皮书' },
+        { id: 'policy', label: '政策文件' },
+        { id: 'paper', label: '科学论文' },
+        { id: 'data', label: '数据发布' },
+        { id: 'announcement', label: '公司公告' },
+        { id: 'media', label: '媒体' },
+    ];
+    const TIME_RANGES = [
+        { id: 'all', label: '全部' },
+        { id: '3', label: '近3天' },
+        { id: '7', label: '近7天' },
+        { id: '30', label: '近30天' },
+    ];
+    const SHELF_OPTIONS = [
+        { id: 'later', label: '稍后' },
+        { id: 'read', label: '已读' },
+        { id: 'unread', label: '未读' },
+    ];
+    const DOMAINS = [
+        { id: 'all', label: '全部' },
+        { id: 'geopolitics', label: '地缘' },
+        { id: 'industry', label: '产业' },
+        { id: 'macro', label: '宏观金融' },
+        { id: 'tech', label: '科技' },
+        { id: 'energy', label: '能源气候' },
+        { id: 'health', label: '卫生健康' },
+        { id: 'general', label: '综合' },
+    ];
+    const TYPE_LABELS = Object.fromEntries(DOC_TYPES.map(t => [t.id, t.label]));
+    const DOMAIN_LABEL_MAP = Object.fromEntries(DOMAINS.map(t => [t.id, t.label]));
+    const TIME_LABEL_MAP = Object.fromEntries(TIME_RANGES.map(t => [t.id, t.label]));
+    const SHELF_LABEL_MAP = Object.fromEntries(SHELF_OPTIONS.map(t => [t.id, t.label]));
+
+    function loadReadingStore() {
+        try {
+            const raw = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
+            return {
+                read: raw.read && typeof raw.read === 'object' ? raw.read : {},
+                later: raw.later && typeof raw.later === 'object' ? raw.later : {},
+            };
+        } catch {
+            return { read: {}, later: {} };
+        }
+    }
+    function saveReadingStore(store) { localStorage.setItem(STORE_KEY, JSON.stringify(store)); }
+    function isRead(link) { return !!loadReadingStore().read[link]; }
+    function isLater(link) { return !!loadReadingStore().later[link]; }
+    function markRead(link, on = true) {
+        const store = loadReadingStore();
+        if (on) { store.read[link] = Date.now(); delete store.later[link]; }
+        else delete store.read[link];
+        saveReadingStore(store);
+    }
+    function toggleLater(link) {
+        const store = loadReadingStore();
+        if (store.later[link]) delete store.later[link];
+        else { store.later[link] = Date.now(); delete store.read[link]; }
+        saveReadingStore(store);
+        return !!store.later[link];
+    }
+    function matchesShelf(link) {
+        if (currentShelf === 'all') return true;
+        if (currentShelf === 'unread') return !isRead(link);
+        if (currentShelf === 'later') return isLater(link);
+        if (currentShelf === 'read') return isRead(link);
+        return true;
+    }
+
+    function setViewButtons() {
+        document.querySelectorAll('.view-btn').forEach(btn => {
+            const on = btn.dataset.view === currentView;
+            btn.className = on
+                ? 'view-btn rounded-full px-3.5 py-1.5 text-xs font-medium text-ink-950 bg-brass shadow-sm'
+                : 'view-btn rounded-full px-3.5 py-1.5 text-xs font-medium text-mist-400 hover:text-mist-100';
+        });
+    }
+
+    function applyViewChrome() {
+        const lib = currentView === 'library';
+        const agenda = currentView === 'agenda';
+        feedWrap.classList.toggle('hidden', agenda);
+        calendarWrap.classList.toggle('hidden', !agenda);
+        const shelfRow = document.getElementById('shelfRow');
+        if (shelfRow) shelfRow.classList.toggle('hidden', !lib);
+        ['domainRow', 'typeRow', 'countryRow', 'topicRow'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.toggle('hidden', lib);
+        });
+        setViewButtons();
+    }
 
     async function init() {
         try {
+            bindViewNav();
             const [sourcesRes, statsRes] = await Promise.all([
                 fetch('/api/sources'),
-                fetch('/api/stats')
+                fetch('/api/stats'),
             ]);
-            allSources = await sourcesRes.json();
+            await sourcesRes.json();
             const stats = await statsRes.json();
-
             sourceCountSpan.textContent = stats.total_sources;
-            countryCountSpan.textContent = Object.keys(stats.country_stats).length;
-
+            domainCountSpan.textContent = Object.keys(stats.domain_stats || {}).length;
+            renderTimeFilters();
+            renderShelfFilters();
+            renderDomainFilters();
             renderTypeFilters();
-            renderCountryFilters(Object.keys(stats.country_stats));
-
+            renderCountrySelect(Object.keys(stats.country_stats || {}));
+            renderCalTimeFilters();
+            bindReset();
+            bindSearch();
+            bindHealth();
+            updateActiveSummary();
+            applyViewChrome();
+            loadHealth(true);
             await waitForCacheAndLoad();
         } catch (err) {
             showError(err.message);
@@ -589,24 +403,60 @@
         const ready = await checkStatus();
         if (!ready) {
             pollTimer = setInterval(async () => {
-                const ok = await checkStatus();
-                if (ok) {
+                if (await checkStatus()) {
                     clearInterval(pollTimer);
-                    await loadArticles(1);
+                    await Promise.all([loadTopics(), loadArticles(1)]);
                 }
             }, 2000);
         } else {
-            await loadArticles(1);
+            await Promise.all([loadTopics(), loadArticles(1)]);
         }
+    }
+
+    async function loadTopics() {
+        try {
+            const res = await fetch('/api/topics?days=7&limit=14');
+            const data = await res.json();
+            if (data.loading) return;
+            topicsLoaded = true;
+            topicOptions = data.topics || [];
+            renderTopics(topicOptions);
+        } catch {
+            document.getElementById('topicsCloud').innerHTML = '<span class="text-xs text-mist-500">—</span>';
+        }
+    }
+
+    function renderTopics(topics) {
+        const el = document.getElementById('topicsCloud');
+        if (!topics.length) {
+            el.innerHTML = '<span class="text-xs text-mist-500">—</span>';
+            return;
+        }
+        const max = Math.max(...topics.map(t => t.count));
+        let html = `<button type="button" class="chip ${currentTopic === 'all' ? 'active' : ''}" data-topic="all">全部</button>`;
+        topics.forEach(t => {
+            const hot = t.count >= max * 0.6 ? ' hot' : '';
+            html += `<button type="button" class="chip${hot} ${currentTopic === t.id ? 'active' : ''}" data-topic="${escapeHtml(t.id)}" data-label="${escapeHtml(t.label)}">${escapeHtml(t.label)}<span class="count">${t.count}</span></button>`;
+        });
+        el.innerHTML = html;
+        el.querySelectorAll('.chip').forEach(btn => {
+            btn.addEventListener('click', () => {
+                currentTopic = btn.dataset.topic;
+                currentTopicLabel = btn.dataset.label || '';
+                invalidateShelfPool();
+                el.querySelectorAll('.chip').forEach(b => b.classList.toggle('active', b === btn));
+                updateActiveSummary();
+                loadArticles(1);
+                scrollToResults();
+            });
+        });
     }
 
     async function checkStatus() {
         const res = await fetch('/api/articles/status');
         const data = await res.json();
         if (data.ready) {
-            if (data.cached_at) {
-                updateTimeSpan.textContent = formatCachedTime(data.cached_at);
-            }
+            if (data.cached_at) updateTimeSpan.textContent = formatCachedTime(data.cached_at);
             totalCountSpan.textContent = data.total;
         }
         return data.ready;
@@ -615,30 +465,25 @@
     async function loadArticles(page) {
         currentPage = page;
         showSkeleton();
-
+        // 时间线不做状态筛选；收藏才按稍后/已读过滤
+        if (currentView === 'library') {
+            await loadShelfPage(page);
+            return;
+        }
         const params = new URLSearchParams({
-            page: page,
-            per_page: PER_PAGE,
-            source_type: currentSourceType,
-            country: currentCountry
+            page, per_page: PER_PAGE,
+            source_type: currentSourceType, domain: currentDomain,
+            country: currentCountry, topic: currentTopic,
+            days: currentDays, merge: '1',
         });
-
+        if (currentQuery) params.set('q', currentQuery);
+        if (!topicsLoaded) loadTopics();
         try {
             const res = await fetch(`/api/articles?${params}`);
             const data = await res.json();
-
-            if (data.loading) {
-                showLoadingPanel();
-                return;
-            }
-
-            paginationMeta = data.pagination;
+            if (data.loading) { showLoadingPanel(); return; }
             totalCountSpan.textContent = data.pagination.total;
-
-            if (data.cached_at) {
-                updateTimeSpan.textContent = formatCachedTime(data.cached_at);
-            }
-
+            if (data.cached_at) updateTimeSpan.textContent = formatCachedTime(data.cached_at);
             renderArticles(data.articles);
             renderPagination(data.pagination);
             updateResultInfo(data.pagination);
@@ -647,178 +492,505 @@
         }
     }
 
-    function showSkeleton() {
-        let html = '<div class="skeleton-grid">';
-        for (let i = 0; i < 6; i++) {
-            html += `<div class="skeleton-card">
-                <div class="skeleton-line short"></div>
-                <div class="skeleton-line long"></div>
-                <div class="skeleton-line medium"></div>
-                <div class="skeleton-line long"></div>
-            </div>`;
+    function filterKey() {
+        return [currentSourceType, currentDomain, currentCountry, currentTopic, currentDays, currentQuery, currentView].join('|');
+    }
+
+    async function ensureShelfPool() {
+        const key = filterKey();
+        if (shelfPool && shelfPoolKey === key) return shelfPool;
+        const params = new URLSearchParams({
+            page: 1, per_page: 400, pool: '1',
+            source_type: currentSourceType, domain: currentDomain,
+            country: currentCountry, topic: currentTopic,
+            days: currentDays === 'all' ? '30' : currentDays,
+            merge: '1',
+        });
+        if (currentQuery) params.set('q', currentQuery);
+        const res = await fetch(`/api/articles?${params}`);
+        const data = await res.json();
+        shelfPool = data.articles || [];
+        shelfPoolKey = key;
+        if (data.cached_at) updateTimeSpan.textContent = formatCachedTime(data.cached_at);
+        return shelfPool;
+    }
+
+    async function loadShelfPage(page) {
+        try {
+            const pool = await ensureShelfPool();
+            const shelf = currentShelf === 'all' ? 'later' : currentShelf;
+            const filtered = pool.filter(a => {
+                if (shelf === 'unread') return !isRead(a.link);
+                if (shelf === 'later') return isLater(a.link);
+                if (shelf === 'read') return isRead(a.link);
+                return isLater(a.link);
+            });
+            const total = filtered.length;
+            const totalPages = Math.max(1, Math.ceil(total / PER_PAGE) || 1);
+            const p = Math.min(Math.max(1, page), totalPages);
+            currentPage = p;
+            const start = (p - 1) * PER_PAGE;
+            const slice = filtered.slice(start, start + PER_PAGE);
+            const pagination = {
+                page: p, per_page: PER_PAGE, total, total_pages: totalPages,
+                has_prev: p > 1, has_next: p < totalPages,
+            };
+            totalCountSpan.textContent = total;
+            renderArticles(slice);
+            renderPagination(pagination);
+            updateResultInfo(pagination);
+        } catch (err) {
+            showError(err.message);
         }
-        html += '</div>';
-        container.innerHTML = html;
+    }
+
+    function invalidateShelfPool() { shelfPool = null; shelfPoolKey = ''; }
+
+    function showSkeleton() {
+        container.innerHTML = `<div class="grid gap-3 sm:grid-cols-2">${Array.from({ length: 6 }, () => `
+            <div class="rounded-2xl border border-white/5 bg-ink-800/40 p-4 space-y-3">
+                <div class="skeleton-line" style="width:30%"></div>
+                <div class="skeleton-line" style="width:92%"></div>
+                <div class="skeleton-line" style="width:70%"></div>
+            </div>`).join('')}</div>`;
+        paginationEl.classList.add('hidden');
         paginationEl.style.display = 'none';
     }
 
     function showLoadingPanel() {
-        container.innerHTML = `
-            <div class="loading-panel">
-                <div class="spinner"></div>
-                <div class="loading-text">正在聚合全球智库文章</div>
-                <div class="loading-sub">后台正在抓取 200 个信息源，请稍候...</div>
-                <div class="progress-bar"><span></span></div>
-            </div>`;
+        container.innerHTML = `<div class="flex flex-col items-center justify-center py-20 text-mist-400"><div class="spinner"></div><div class="text-sm">加载中</div></div>`;
         paginationEl.style.display = 'none';
-        resultInfo.textContent = '数据准备中...';
+        resultInfo.textContent = '';
     }
 
     function showError(msg) {
-        container.innerHTML = `<div class="loading-panel">
-            <div class="loading-text" style="color:var(--danger)">加载失败</div>
-            <div class="loading-sub">${escapeHtml(msg)}</div>
-        </div>`;
+        container.innerHTML = `<div class="flex flex-col items-center justify-center py-20"><div class="text-sm text-red-400">失败</div><div class="mt-2 text-xs text-mist-500">${escapeHtml(msg)}</div></div>`;
     }
 
-    const SOURCE_TYPES = [
-        { id: 'all', label: '全部' },
-        { id: 'think_tank', label: '智库' },
-        { id: 'international', label: '国际组织' },
-        { id: 'media', label: '认知媒体' },
-        { id: 'journal', label: '学术期刊' },
-        { id: 'policy', label: '经济政策' },
-    ];
-
-    function renderTypeFilters() {
-        const el = document.getElementById('typeFilter');
-        let html = '';
-        SOURCE_TYPES.forEach(({ id, label }) => {
-            html += `<button class="filter-btn ${currentSourceType === id ? 'active' : ''}" data-source-type="${id}">${label}</button>`;
-        });
-        el.innerHTML = html;
-        bindFilterClicks(el, 'source_type');
-    }
-
-    function renderCountryFilters(countries) {
-        const el = document.getElementById('countryFilter');
-        let html = `<button class="filter-btn ${currentCountry === 'all' ? 'active' : ''}" data-country="all">全部</button>`;
-        countries.sort().forEach(country => {
-            html += `<button class="filter-btn ${currentCountry === country ? 'active' : ''}" data-country="${escapeHtml(country)}">${escapeHtml(country)}</button>`;
-        });
-        el.innerHTML = html;
-        bindFilterClicks(el, 'country');
-    }
-
-    function bindFilterClicks(el, type) {
-        el.querySelectorAll('.filter-btn').forEach(btn => {
+    function bindChipRow(el, items, current, key, onPick) {
+        el.innerHTML = items.map(({ id, label }) =>
+            `<button type="button" class="chip ${current === id ? 'active' : ''}" data-id="${id}">${label}</button>`
+        ).join('');
+        el.querySelectorAll('.chip').forEach(btn => {
             btn.addEventListener('click', () => {
-                el.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                if (type === 'source_type') {
-                    currentSourceType = btn.dataset.sourceType;
-                } else {
-                    currentCountry = btn.dataset.country;
-                }
+                onPick(btn.dataset.id);
+                el.querySelectorAll('.chip').forEach(b => b.classList.toggle('active', b === btn));
+                updateActiveSummary();
                 loadArticles(1);
-                window.scrollTo({ top: container.offsetTop - 80, behavior: 'smooth' });
+                scrollToResults();
             });
         });
     }
 
+    function renderTimeFilters() {
+        bindChipRow(document.getElementById('timeFilter'), TIME_RANGES, currentDays, 'days', id => {
+            currentDays = id; invalidateShelfPool();
+        });
+    }
+    function renderShelfFilters() {
+        bindChipRow(document.getElementById('shelfFilter'), SHELF_OPTIONS, currentShelf, 'shelf', id => {
+            currentShelf = id;
+        });
+    }
+    function renderDomainFilters() {
+        bindChipRow(document.getElementById('domainFilter'), DOMAINS, currentDomain, 'domain', id => {
+            currentDomain = id; invalidateShelfPool();
+        });
+    }
+    function renderTypeFilters() {
+        bindChipRow(document.getElementById('typeFilter'), DOC_TYPES, currentSourceType, 'type', id => {
+            currentSourceType = id; invalidateShelfPool();
+        });
+    }
+
+    function renderCountrySelect(countries) {
+        const priority = PRIORITY_COUNTRIES.filter(c => countries.includes(c));
+        const rest = countries.filter(c => !PRIORITY_COUNTRIES.includes(c)).sort();
+        let html = '<option value="all">全部</option>';
+        if (priority.length) {
+            html += '<optgroup label="常用">' + priority.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('') + '</optgroup>';
+        }
+        if (rest.length) {
+            html += '<optgroup label="更多">' + rest.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('') + '</optgroup>';
+        }
+        countrySelect.innerHTML = html;
+        countrySelect.value = currentCountry;
+        countrySelect.onchange = () => {
+            currentCountry = countrySelect.value;
+            invalidateShelfPool();
+            updateActiveSummary();
+            loadArticles(1);
+            scrollToResults();
+        };
+    }
+
+    function bindSearch() {
+        searchInput.addEventListener('input', () => {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(() => {
+                currentQuery = searchInput.value.trim();
+                invalidateShelfPool();
+                updateActiveSummary();
+                loadArticles(1);
+            }, 320);
+        });
+        searchInput.addEventListener('keydown', e => {
+            if (e.key === 'Enter') {
+                clearTimeout(searchTimer);
+                currentQuery = searchInput.value.trim();
+                invalidateShelfPool();
+                updateActiveSummary();
+                loadArticles(1);
+            }
+        });
+    }
+
+    function bindHealth() {
+        healthToggle.addEventListener('click', async () => {
+            healthBody.classList.toggle('open');
+            await loadHealth(false);
+        });
+    }
+
+    async function loadHealth(silent) {
+        try {
+            const res = await fetch('/api/feeds/health');
+            const data = await res.json();
+            healthLoaded = true;
+            healthPills.innerHTML = `
+                <span class="text-emerald-400/90">正常 ${data.ok}</span>
+                <span class="text-amber-400/90">异常 ${data.failing}</span>
+                <span class="text-mist-500">降权 ${data.demoted}</span>`;
+            const rows = (data.sources || []).slice(0, 80);
+            if (!rows.length) {
+                healthTableBody.innerHTML = '<tr><td colspan="7" class="py-3">—</td></tr>';
+                return;
+            }
+            const statusLabel = { ok: '正常', failing: '异常', demoted: '降权', unknown: '未知' };
+            healthTableBody.innerHTML = rows.map(s => `
+                <tr class="border-b border-white/[0.03]">
+                    <td class="py-2 pr-3">${statusLabel[s.status] || s.status}</td>
+                    <td class="py-2 pr-3 text-mist-200">${escapeHtml(s.name_cn || s.name)}</td>
+                    <td class="py-2 pr-3">${s.success_count}</td>
+                    <td class="py-2 pr-3">${s.fail_count}</td>
+                    <td class="py-2 pr-3">${s.noise_count}</td>
+                    <td class="py-2 pr-3">${s.last_fetched_at ? formatCachedTime(s.last_fetched_at) : '—'}</td>
+                    <td class="py-2 text-mist-500">${escapeHtml(s.demoted_reason || s.last_error || '')}</td>
+                </tr>`).join('');
+        } catch (err) {
+            if (!silent) healthTableBody.innerHTML = `<tr><td colspan="7" class="py-3 text-red-400">${escapeHtml(err.message)}</td></tr>`;
+        }
+    }
+
+    function bindReset() {
+        resetBtn.addEventListener('click', () => {
+            currentSourceType = 'all';
+            currentDomain = 'all';
+            currentDays = 'all';
+            currentShelf = currentView === 'library' ? 'later' : 'all';
+            currentCountry = 'all';
+            currentTopic = 'all';
+            currentTopicLabel = '';
+            currentQuery = '';
+            searchInput.value = '';
+            countrySelect.value = 'all';
+            invalidateShelfPool();
+            renderTimeFilters();
+            renderShelfFilters();
+            renderDomainFilters();
+            renderTypeFilters();
+            document.querySelectorAll('#topicsCloud .chip').forEach(b => {
+                b.classList.toggle('active', b.dataset.topic === 'all');
+            });
+            updateActiveSummary();
+            loadArticles(1);
+        });
+    }
+
+    function hasActiveFilters() {
+        return currentSourceType !== 'all'
+            || currentDomain !== 'all'
+            || currentDays !== 'all'
+            || (currentView === 'library' && currentShelf !== 'later')
+            || currentCountry !== 'all'
+            || currentTopic !== 'all'
+            || !!currentQuery;
+    }
+
+    function updateActiveSummary() {
+        const el = document.getElementById('activeSummary');
+        if (!hasActiveFilters()) {
+            el.innerHTML = '<span class="text-mist-300">全部</span>';
+            resetBtn.disabled = true;
+            return;
+        }
+        const pills = [];
+        if (currentQuery) pills.push(`<span class="tag-pill">${escapeHtml(currentQuery)}</span>`);
+        if (currentDays !== 'all') pills.push(`<span class="tag-pill">${escapeHtml(TIME_LABEL_MAP[currentDays])}</span>`);
+        if (currentView === 'library' && currentShelf !== 'later') {
+            pills.push(`<span class="tag-pill">${escapeHtml(SHELF_LABEL_MAP[currentShelf])}</span>`);
+        }
+        if (currentDomain !== 'all') pills.push(`<span class="tag-pill">${escapeHtml(DOMAIN_LABEL_MAP[currentDomain])}</span>`);
+        if (currentSourceType !== 'all') pills.push(`<span class="tag-pill">${escapeHtml(TYPE_LABELS[currentSourceType])}</span>`);
+        if (currentCountry !== 'all') pills.push(`<span class="tag-pill">${escapeHtml(currentCountry)}</span>`);
+        if (currentTopic !== 'all') pills.push(`<span class="tag-pill">${escapeHtml(currentTopicLabel || currentTopic)}</span>`);
+        el.innerHTML = pills.join('');
+        resetBtn.disabled = false;
+    }
+
+    function scrollToResults() {
+        window.scrollTo({ top: Math.max(0, container.offsetTop - 80), behavior: 'smooth' });
+    }
+
+    function actionBtn(active) {
+        return active
+            ? 'rounded-md border border-brass/40 bg-brass/15 px-2 py-1 text-[11px] text-brass'
+            : 'rounded-md border border-white/10 bg-transparent px-2 py-1 text-[11px] text-mist-400 hover:border-white/20 hover:text-mist-100';
+    }
+
     function renderArticles(articles) {
         if (!articles.length) {
-            container.innerHTML = `<div class="loading-panel">
-                <div class="loading-text">📭 暂无匹配文章</div>
-                <div class="loading-sub">试试切换其他筛选条件</div>
-            </div>`;
+            container.innerHTML = `<div class="py-20 text-center text-sm text-mist-500">无结果</div>`;
             paginationEl.style.display = 'none';
             return;
         }
-
-        let html = '<div class="articles-grid">';
+        let html = '<div class="space-y-2.5">';
         articles.forEach((article, i) => {
-            const delay = Math.min(i * 0.04, 0.4);
+            const related = article.related || [];
+            const clusterSize = article.cluster_size || (1 + related.length);
+            const link = article.link || '';
+            const read = isRead(link);
+            const later = isLater(link);
+            let clusterHtml = '';
+            if (clusterSize > 1) {
+                const rid = `rel-${i}`;
+                clusterHtml = `
+                    <div class="mt-3">
+                        <button type="button" class="cluster-toggle text-[11px] text-brass/90 hover:text-brass" data-target="${rid}">同题 ${clusterSize} ▾</button>
+                        <div id="${rid}" class="mt-2 hidden space-y-1.5 border-l border-white/10 pl-3">
+                            ${related.map(r => `
+                                <div class="flex flex-wrap items-baseline gap-2 text-xs">
+                                    <a class="text-mist-200 hover:text-brass" href="${escapeHtml(r.link)}" target="_blank" rel="noopener noreferrer" data-open-link="${escapeHtml(r.link)}">${escapeHtml(r.title)}</a>
+                                    <span class="text-mist-500">${escapeHtml(r.source_cn || r.source || '')}</span>
+                                </div>`).join('')}
+                        </div>
+                    </div>`;
+            }
             html += `
-                <article class="article-card" style="animation-delay:${delay}s">
-                    <div class="card-header">
-                        <img class="source-icon" src="${escapeHtml(article.icon || '')}"
-                             alt="" onerror="this.style.display='none'">
-                        <span class="source-name">${escapeHtml(article.source_cn || article.source)}</span>
-                        <span class="country-badge">${escapeHtml(article.country || '国际')}</span>
-                        <span class="type-badge">${escapeHtml(article.source_type_label || '智库')}</span>
+                <article class="group animate-fade-up rounded-2xl border border-white/8 bg-ink-800/50 p-4 transition hover:border-brass/30 hover:bg-ink-800/80 hover:shadow-lift ${read ? 'opacity-50' : ''} ${later ? 'ring-1 ring-brass/25' : ''}" style="animation-delay:${Math.min(i * 0.03, 0.3)}s" data-link="${escapeHtml(link)}">
+                    <div class="mb-2.5 flex flex-wrap items-center gap-2">
+                        <img class="h-5 w-5 rounded object-contain bg-ink-900" src="${escapeHtml(article.icon || '')}" alt="" onerror="this.style.display='none'">
+                        <span class="text-xs font-medium text-brass">${escapeHtml(article.source_cn || article.source)}</span>
+                        <span class="rounded-full border border-white/10 px-2 py-0.5 text-[10px] text-mist-400">${escapeHtml(article.source_type_label || '')}</span>
+                        <span class="rounded-full border border-white/10 px-2 py-0.5 text-[10px] text-mist-500">${escapeHtml(article.domain_label || article.country || '')}</span>
                     </div>
-                    <h2 class="article-title">
-                        <a href="${escapeHtml(article.link)}" target="_blank" rel="noopener noreferrer">
-                            ${escapeHtml(article.title)}
-                        </a>
+                    <h2 class="text-[0.95rem] font-semibold leading-snug tracking-tight">
+                        <a class="text-mist-50 transition hover:text-brass" href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer" data-open-link="${escapeHtml(link)}">${escapeHtml(article.title)}</a>
                     </h2>
-                    <div class="article-meta">
-                        <span>📅 ${escapeHtml(article.published || '时间未知')}</span>
-                        <a class="read-link" href="${escapeHtml(article.link)}" target="_blank" rel="noopener">阅读原文 →</a>
+                    ${clusterHtml}
+                    <div class="mt-3.5 flex flex-wrap items-center justify-between gap-2 border-t border-white/5 pt-3">
+                        <span class="text-[11px] text-mist-500">${escapeHtml(article.published || '—')}</span>
+                        <div class="flex items-center gap-1.5">
+                            <button type="button" class="${actionBtn(later)}" data-later="${escapeHtml(link)}">稍后</button>
+                            <button type="button" class="${actionBtn(read)}" data-read="${escapeHtml(link)}">已读</button>
+                            <a class="rounded-md border border-white/10 px-2 py-1 text-[11px] text-mist-300 hover:border-brass/40 hover:text-brass" href="${escapeHtml(link)}" target="_blank" rel="noopener" data-open-link="${escapeHtml(link)}">原文</a>
+                        </div>
                     </div>
                 </article>`;
         });
         html += '</div>';
         container.innerHTML = html;
+
+        container.querySelectorAll('.cluster-toggle').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const panel = document.getElementById(btn.dataset.target);
+                if (!panel) return;
+                const open = !panel.classList.contains('hidden');
+                panel.classList.toggle('hidden', open);
+                btn.textContent = open ? btn.textContent.replace('▴', '▾') : btn.textContent.replace('▾', '▴');
+            });
+        });
+        container.querySelectorAll('[data-open-link]').forEach(el => {
+            el.addEventListener('click', () => markRead(el.dataset.openLink, true));
+        });
+        container.querySelectorAll('[data-later]').forEach(btn => {
+            btn.addEventListener('click', e => {
+                e.preventDefault();
+                toggleLater(btn.dataset.later);
+                if (currentView === 'library') loadArticles(currentPage);
+                else renderArticles(articles);
+            });
+        });
+        container.querySelectorAll('[data-read]').forEach(btn => {
+            btn.addEventListener('click', e => {
+                e.preventDefault();
+                markRead(btn.dataset.read, !isRead(btn.dataset.read));
+                if (currentView === 'library') loadArticles(currentPage);
+                else renderArticles(articles);
+            });
+        });
+    }
+
+    function bindViewNav() {
+        document.querySelectorAll('.view-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const view = btn.dataset.view;
+                if (view === currentView) return;
+                currentView = view;
+                if (view === 'library') {
+                    currentShelf = 'later';
+                    renderShelfFilters();
+                } else if (view === 'timeline') {
+                    currentShelf = 'all';
+                }
+                invalidateShelfPool();
+                applyViewChrome();
+                updateActiveSummary();
+                if (view === 'agenda') loadEarningsCalendar();
+                else loadArticles(1);
+            });
+        });
+    }
+
+    function renderCalTimeFilters() {
+        const el = document.getElementById('calTimeFilter');
+        const opts = [
+            { id: 'all', label: '全部' },
+            { id: '3', label: '近3天' },
+            { id: '7', label: '近7天' },
+            { id: '30', label: '近30天' },
+        ];
+        el.innerHTML = opts.map(({ id, label }) =>
+            `<button type="button" class="chip ${calDays === id ? 'active' : ''}" data-days="${id}">${label}</button>`
+        ).join('');
+        el.querySelectorAll('.chip').forEach(btn => {
+            btn.addEventListener('click', () => {
+                calDays = btn.dataset.days;
+                el.querySelectorAll('.chip').forEach(b => b.classList.toggle('active', b === btn));
+                loadEarningsCalendar();
+            });
+        });
+    }
+
+    async function loadEarningsCalendar() {
+        calendarBody.innerHTML = `<div class="flex flex-col items-center justify-center py-20 text-mist-400"><div class="spinner"></div><div class="text-sm">加载中</div></div>`;
+        try {
+            const params = new URLSearchParams({ days: calDays });
+            if (calCompany !== 'all') params.set('company', calCompany);
+            const res = await fetch(`/api/earnings/calendar?${params}`);
+            const data = await res.json();
+            totalCountSpan.textContent = data.total;
+            renderCalCompanies(data.companies || []);
+            renderCalendar(data.days || []);
+        } catch (err) {
+            calendarBody.innerHTML = `<div class="py-20 text-center text-sm text-red-400">${escapeHtml(err.message)}</div>`;
+        }
+    }
+
+    function renderCalCompanies(companies) {
+        const chips = [{ label: '全部', count: null, id: 'all' }]
+            .concat(companies.slice(0, 24).map(c => ({ label: c.label, count: c.count, id: c.label })));
+        calCompaniesEl.innerHTML = chips.map(c => {
+            const active = calCompany === c.id ? 'active' : '';
+            const count = c.count != null ? `<span class="count">${c.count}</span>` : '';
+            return `<button type="button" class="chip ${active}" data-company="${escapeHtml(c.id)}">${escapeHtml(c.label)}${count}</button>`;
+        }).join('');
+        calCompaniesEl.querySelectorAll('.chip').forEach(btn => {
+            btn.addEventListener('click', () => {
+                calCompany = btn.dataset.company;
+                loadEarningsCalendar();
+            });
+        });
+    }
+
+    function renderCalendar(days) {
+        if (!days.length) {
+            calendarBody.innerHTML = `<div class="py-20 text-center text-sm text-mist-500">无结果</div>`;
+            return;
+        }
+        let html = '<div class="space-y-8">';
+        days.forEach(day => {
+            html += `<section>
+                <div class="mb-3 flex items-baseline gap-3 border-b border-white/10 pb-2">
+                    <h3 class="font-display text-lg tracking-wide text-mist-50">${escapeHtml(day.date)}</h3>
+                    <span class="text-xs text-mist-500">${day.count}</span>
+                </div>
+                <div class="space-y-1">`;
+            day.items.forEach(it => {
+                const link = it.link || '';
+                const read = isRead(link);
+                const later = isLater(link);
+                html += `
+                    <div class="grid grid-cols-1 items-start gap-2 rounded-xl px-2 py-2.5 transition hover:bg-white/[0.03] sm:grid-cols-[7rem_1fr_auto] ${read ? 'opacity-45' : ''}">
+                        <div class="text-xs font-medium ${it.company ? 'text-brass' : 'text-mist-500'}">${escapeHtml(it.company || '—')}</div>
+                        <a class="text-sm leading-snug text-mist-100 hover:text-brass" href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer" data-open-link="${escapeHtml(link)}">${escapeHtml(it.title)}</a>
+                        <div class="flex gap-1.5">
+                            <button type="button" class="${actionBtn(later)}" data-later="${escapeHtml(link)}">稍后</button>
+                            <button type="button" class="${actionBtn(read)}" data-read="${escapeHtml(link)}">已读</button>
+                        </div>
+                    </div>`;
+            });
+            html += '</div></section>';
+        });
+        html += '</div>';
+        calendarBody.innerHTML = html;
+        calendarBody.querySelectorAll('[data-open-link]').forEach(el => {
+            el.addEventListener('click', () => markRead(el.dataset.openLink, true));
+        });
+        calendarBody.querySelectorAll('[data-later]').forEach(btn => {
+            btn.addEventListener('click', () => { toggleLater(btn.dataset.later); loadEarningsCalendar(); });
+        });
+        calendarBody.querySelectorAll('[data-read]').forEach(btn => {
+            btn.addEventListener('click', () => { markRead(btn.dataset.read, !isRead(btn.dataset.read)); loadEarningsCalendar(); });
+        });
     }
 
     function renderPagination(meta) {
         if (!meta || meta.total_pages <= 1) {
             paginationEl.style.display = 'none';
+            paginationEl.classList.add('hidden');
             return;
         }
-
+        paginationEl.classList.remove('hidden');
         paginationEl.style.display = 'flex';
         const { page, total_pages, has_prev, has_next } = meta;
-
-        let html = `<button class="page-btn" ${!has_prev ? 'disabled' : ''} data-page="${page - 1}">‹</button>`;
-
-        const pages = buildPageList(page, total_pages);
-        pages.forEach(p => {
-            if (p === '...') {
-                html += `<span class="page-ellipsis">…</span>`;
-            } else {
-                html += `<button class="page-btn ${p === page ? 'active' : ''}" data-page="${p}">${p}</button>`;
-            }
+        const btn = (label, p, active, disabled) =>
+            `<button type="button" data-page="${p}" ${disabled ? 'disabled' : ''}
+                class="min-w-[2rem] rounded-lg border px-2.5 py-1.5 text-xs transition ${active ? 'border-brass bg-brass text-ink-950' : 'border-white/10 text-mist-400 hover:border-white/25 hover:text-mist-100'} disabled:opacity-30">${label}</button>`;
+        let html = btn('‹', page - 1, false, !has_prev);
+        buildPageList(page, total_pages).forEach(p => {
+            html += p === '...'
+                ? `<span class="px-1 text-mist-600">…</span>`
+                : btn(p, p, p === page, false);
         });
-
-        html += `<button class="page-btn" ${!has_next ? 'disabled' : ''} data-page="${page + 1}">›</button>`;
+        html += btn('›', page + 1, false, !has_next);
         paginationEl.innerHTML = html;
-
-        paginationEl.querySelectorAll('.page-btn[data-page]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const p = parseInt(btn.dataset.page, 10);
+        paginationEl.querySelectorAll('[data-page]').forEach(b => {
+            b.addEventListener('click', () => {
+                const p = parseInt(b.dataset.page, 10);
                 if (p >= 1 && p <= total_pages) {
                     loadArticles(p);
-                    window.scrollTo({ top: container.offsetTop - 80, behavior: 'smooth' });
+                    scrollToResults();
                 }
             });
         });
     }
 
     function buildPageList(current, total) {
-        if (total <= 7) {
-            return Array.from({ length: total }, (_, i) => i + 1);
-        }
+        if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
         const pages = [1];
         if (current > 3) pages.push('...');
-        for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
-            pages.push(i);
-        }
+        for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) pages.push(i);
         if (current < total - 2) pages.push('...');
         pages.push(total);
         return pages;
     }
 
     function updateResultInfo(meta) {
-        if (!meta || meta.total === 0) {
-            resultInfo.innerHTML = '暂无结果';
-            return;
-        }
+        if (!meta || meta.total === 0) { resultInfo.textContent = ''; return; }
         const start = (meta.page - 1) * meta.per_page + 1;
         const end = Math.min(meta.page * meta.per_page, meta.total);
-        resultInfo.innerHTML = `显示 <strong>${start}–${end}</strong> 条，共 <strong>${meta.total}</strong> 条 · 第 ${meta.page}/${meta.total_pages} 页`;
+        resultInfo.textContent = `${start}–${end} / ${meta.total}`;
     }
 
     function formatCachedTime(iso) {
@@ -826,15 +998,13 @@
             const d = new Date(iso);
             const pad = n => String(n).padStart(2, '0');
             return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-        } catch {
-            return '—';
-        }
+        } catch { return '—'; }
     }
 
     function escapeHtml(str) {
         if (!str) return '';
         return String(str).replace(/[&<>"']/g, m => ({
-            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
         }[m]));
     }
 
