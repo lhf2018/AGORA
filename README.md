@@ -2,7 +2,7 @@
 
 个人认知信息聚合器：智库、财报、研报、白皮书、政策、论文、数据、公告与媒体，统一进本地信息流。
 
-[仓库地址](https://github.com/lhf2018/Think-Tank-Aggregation)
+[仓库地址](https://github.com/lhf2018/AGORA)
 
 ## 功能
 
@@ -45,8 +45,8 @@
 ## 快速开始
 
 ```bash
-git clone https://github.com/lhf2018/Think-Tank-Aggregation.git
-cd Think-Tank-Aggregation
+git clone https://github.com/lhf2018/AGORA.git
+cd AGORA
 
 python -m venv venv
 
