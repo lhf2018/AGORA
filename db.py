@@ -78,7 +78,10 @@ def init_db(db_path=None):
                     country TEXT,
                     priority INTEGER DEFAULT 2,
                     description TEXT,
-                    fetched_at TEXT NOT NULL
+                    fetched_at TEXT NOT NULL,
+                    link_kind TEXT,
+                    filing_type TEXT,
+                    company_id TEXT
                 );
 
                 CREATE INDEX IF NOT EXISTS idx_articles_published
@@ -196,6 +199,9 @@ def _migrate_columns(conn):
     for name, typedef in (
         ('domain', 'TEXT'),
         ('domain_label', 'TEXT'),
+        ('link_kind', 'TEXT'),
+        ('filing_type', 'TEXT'),
+        ('company_id', 'TEXT'),
     ):
         if name not in art_cols:
             conn.execute(f'ALTER TABLE articles ADD COLUMN {name} {typedef}')
@@ -228,8 +234,9 @@ def upsert_articles(articles):
         INSERT INTO articles (
             link, title, published_raw, published, published_at,
             source, source_cn, icon, category, source_type, source_type_label,
-            domain, domain_label, country, priority, description, fetched_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            domain, domain_label, country, priority, description, fetched_at,
+            link_kind, filing_type, company_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(link) DO UPDATE SET
             title=excluded.title,
             published_raw=COALESCE(excluded.published_raw, articles.published_raw),
@@ -246,7 +253,10 @@ def upsert_articles(articles):
             country=excluded.country,
             priority=excluded.priority,
             description=excluded.description,
-            fetched_at=excluded.fetched_at
+            fetched_at=excluded.fetched_at,
+            link_kind=COALESCE(excluded.link_kind, articles.link_kind),
+            filing_type=COALESCE(excluded.filing_type, articles.filing_type),
+            company_id=COALESCE(excluded.company_id, articles.company_id)
     '''
     with get_conn() as conn:
         for a in articles:
@@ -277,6 +287,9 @@ def upsert_articles(articles):
                     a.get('priority', 2),
                     a.get('description') or '',
                     now,
+                    a.get('link_kind') or '',
+                    a.get('filing_type') or '',
+                    a.get('company_id') or '',
                 ),
             )
             if exists:
@@ -517,6 +530,7 @@ def latest_fetched_at():
 
 
 def row_to_article(row):
+    keys = row.keys()
     return {
         'title': row['title'],
         'link': row['link'],
@@ -529,11 +543,14 @@ def row_to_article(row):
         'category': row['category'] or '',
         'source_type': row['source_type'] or '',
         'source_type_label': row['source_type_label'] or '',
-        'domain': row['domain'] if 'domain' in row.keys() else '',
-        'domain_label': row['domain_label'] if 'domain_label' in row.keys() else '',
+        'domain': row['domain'] if 'domain' in keys else '',
+        'domain_label': row['domain_label'] if 'domain_label' in keys else '',
         'country': row['country'] or '',
         'priority': row['priority'] if row['priority'] is not None else 2,
         'description': row['description'] or '',
+        'link_kind': (row['link_kind'] if 'link_kind' in keys else '') or '',
+        'filing_type': (row['filing_type'] if 'filing_type' in keys else '') or '',
+        'company_id': (row['company_id'] if 'company_id' in keys else '') or '',
     }
 
 

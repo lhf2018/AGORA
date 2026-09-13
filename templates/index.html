@@ -390,6 +390,11 @@
     <!-- Agenda -->
     <div id="calendarWrap" class="hidden">
         <section class="mb-5 rounded-2xl border border-white/10 bg-ink-800/60 p-4 shadow-panel backdrop-blur-md sm:p-5">
+            <div class="mb-3 flex flex-wrap items-center gap-2 text-xs text-mist-400">
+                <span>官方披露优先（SEC / 巨潮 / 披露易）；同公司同季自动聚合成事件</span>
+                <button type="button" id="filingsRefreshBtn" class="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-mist-300 hover:border-brass/40 hover:text-brass">刷新官方披露</button>
+            </div>
+            <div class="mb-4 flex flex-wrap gap-1.5" id="calKindFilter"></div>
             <div class="mb-4 flex flex-wrap gap-1.5" id="calTimeFilter"></div>
             <div class="flex flex-wrap gap-1.5" id="calCompanies"></div>
         </section>
@@ -547,6 +552,7 @@
     let shelfPoolKey = '';
     let calDays = '30';
     let calCompany = 'all';
+    let calKind = 'all';
     let briefDays = '1';
     let adminEditing = null; // name when editing, null when creating
     let adminLabels = { doc_type_labels: {}, domain_labels: {} };
@@ -583,6 +589,8 @@
     const calendarWrap = document.getElementById('calendarWrap');
     const calendarBody = document.getElementById('calendarBody');
     const calCompaniesEl = document.getElementById('calCompanies');
+    const calKindFilterEl = document.getElementById('calKindFilter');
+    const filingsRefreshBtn = document.getElementById('filingsRefreshBtn');
     const briefingWrap = document.getElementById('briefingWrap');
     const briefingBody = document.getElementById('briefingBody');
     const sourcesWrap = document.getElementById('sourcesWrap');
@@ -708,6 +716,7 @@
             renderTypeFilters();
             renderCountrySelect(Object.keys(stats.country_stats || {}));
             renderCalTimeFilters();
+            renderCalKindFilters({});
             renderBriefDaysFilters();
             bindReset();
             bindSearch();
@@ -715,6 +724,7 @@
             bindReadMode();
             bindBriefing();
             bindAdmin();
+            bindFilingsRefresh();
             updateActiveSummary();
             applyViewChrome();
             loadHealth(true);
@@ -722,6 +732,29 @@
         } catch (err) {
             showError(err.message);
         }
+    }
+
+    function bindFilingsRefresh() {
+        if (!filingsRefreshBtn) return;
+        filingsRefreshBtn.addEventListener('click', async () => {
+            const prev = filingsRefreshBtn.textContent;
+            filingsRefreshBtn.textContent = '拉取中…';
+            filingsRefreshBtn.disabled = true;
+            try {
+                const res = await fetch('/api/filings/trigger', { method: 'POST' });
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+                filingsRefreshBtn.textContent = `已更新 ${data.upserted || 0}`;
+                await loadEarningsCalendar();
+            } catch (err) {
+                filingsRefreshBtn.textContent = err.message || '失败';
+            } finally {
+                setTimeout(() => {
+                    filingsRefreshBtn.textContent = prev;
+                    filingsRefreshBtn.disabled = false;
+                }, 1600);
+            }
+        });
     }
 
     async function waitForCacheAndLoad() {
@@ -1327,6 +1360,9 @@
                         <img class="h-5 w-5 rounded object-contain bg-ink-900" src="${escapeHtml(article.icon || '')}" alt="" onerror="this.style.display='none'">
                         <span class="text-xs font-medium text-brass">${escapeHtml(article.source_cn || article.source)}</span>
                         <span class="rounded-full border border-white/10 px-2 py-0.5 text-[10px] text-mist-400">${escapeHtml(article.source_type_label || '')}</span>
+                        ${article.link_kind === 'official' || article.filing_type
+                            ? `<span class="rounded-full border border-brass/40 bg-brass/15 px-2 py-0.5 text-[10px] text-brass">${escapeHtml(article.filing_type || '官方披露')}</span>`
+                            : ''}
                         <span class="rounded-full border border-white/10 px-2 py-0.5 text-[10px] text-mist-500">${escapeHtml(article.domain_label || article.country || '')}</span>
                     </div>
                     <h2 class="text-[0.95rem] font-semibold leading-snug tracking-tight">
@@ -1400,6 +1436,7 @@
             { id: '3', label: '近3天' },
             { id: '7', label: '近7天' },
             { id: '30', label: '近30天' },
+            { id: '120', label: '近120天' },
         ];
         el.innerHTML = opts.map(({ id, label }) =>
             `<button type="button" class="chip ${calDays === id ? 'active' : ''}" data-days="${id}">${label}</button>`
@@ -1413,14 +1450,54 @@
         });
     }
 
+    function renderCalKindFilters(kindCounts) {
+        if (!calKindFilterEl) return;
+        const counts = kindCounts || {};
+        const opts = [
+            { id: 'all', label: '全部类型' },
+            { id: 'official', label: '官方披露', count: counts.official },
+            { id: 'transcript', label: '电话会', count: counts.transcript },
+            { id: 'media', label: '报道', count: counts.media },
+        ];
+        calKindFilterEl.innerHTML = opts.map(o => {
+            const active = calKind === o.id ? 'active' : '';
+            const count = o.count != null ? `<span class="count">${o.count}</span>` : '';
+            return `<button type="button" class="chip ${active}" data-kind="${o.id}">${o.label}${count}</button>`;
+        }).join('');
+        calKindFilterEl.querySelectorAll('.chip').forEach(btn => {
+            btn.addEventListener('click', () => {
+                calKind = btn.dataset.kind;
+                loadEarningsCalendar();
+            });
+        });
+    }
+
+    function kindBadge(it) {
+        const kind = it.link_kind || 'media';
+        const label = it.link_kind_label || ({ official: '官方披露', transcript: '电话会', media: '报道' }[kind] || '报道');
+        const cls = kind === 'official'
+            ? 'border-brass/40 bg-brass/15 text-brass'
+            : kind === 'transcript'
+                ? 'border-sky-500/30 bg-sky-500/10 text-sky-300'
+                : 'border-white/10 bg-white/5 text-mist-400';
+        const filing = it.filing_type
+            ? `<span class="rounded border border-white/10 px-1.5 py-0.5 text-[10px] text-mist-400">${escapeHtml(it.filing_type)}</span>`
+            : '';
+        return `<span class="inline-flex items-center gap-1">
+            <span class="rounded border px-1.5 py-0.5 text-[10px] font-medium ${cls}">${escapeHtml(label)}</span>
+            ${filing}
+        </span>`;
+    }
+
     async function loadEarningsCalendar() {
         calendarBody.innerHTML = `<div class="flex flex-col items-center justify-center py-20 text-mist-400"><div class="spinner"></div><div class="text-sm">加载中</div></div>`;
         try {
-            const params = new URLSearchParams({ days: calDays });
+            const params = new URLSearchParams({ days: calDays, kind: calKind });
             if (calCompany !== 'all') params.set('company', calCompany);
             const res = await fetch(`/api/earnings/calendar?${params}`);
             const data = await res.json();
             totalCountSpan.textContent = data.total;
+            renderCalKindFilters(data.kind_counts || {});
             renderCalCompanies(data.companies || []);
             renderCalendar(data.days || []);
         } catch (err) {
@@ -1446,7 +1523,7 @@
 
     function renderCalendar(days) {
         if (!days.length) {
-            calendarBody.innerHTML = `<div class="py-20 text-center text-sm text-mist-500">无结果</div>`;
+            calendarBody.innerHTML = `<div class="py-20 text-center text-sm text-mist-500">无结果。可点「刷新官方披露」拉取 SEC / 巨潮 / 披露易原文。</div>`;
             return;
         }
         const calArticles = [];
@@ -1455,26 +1532,71 @@
             html += `<section>
                 <div class="mb-3 flex items-baseline gap-3 border-b border-white/10 pb-2">
                     <h3 class="font-display text-lg tracking-wide text-mist-50">${escapeHtml(day.date)}</h3>
-                    <span class="text-xs text-mist-500">${day.count}</span>
+                    <span class="text-xs text-mist-500">${day.count} 事件</span>
                 </div>
-                <div class="space-y-1">`;
+                <div class="space-y-2">`;
             day.items.forEach(it => {
                 const idx = calArticles.length;
                 calArticles.push(it);
                 const link = it.link || '';
                 const read = isRead(link);
                 const later = isLater(link);
+                const isOfficial = (it.link_kind || '') === 'official';
+                const openLabel = isOfficial ? '打开披露' : '原文';
+                const ir = it.ir_url
+                    ? `<a class="rounded-md border border-white/10 px-2 py-1 text-[11px] text-mist-400 hover:border-brass/40 hover:text-brass" href="${escapeHtml(it.ir_url)}" target="_blank" rel="noopener noreferrer">IR</a>`
+                    : '';
+                const rc = it.related_counts || {};
+                const related = it.related || [];
+                const clusterN = it.cluster_size || 1;
+                const period = it.period_key
+                    ? `<span class="rounded border border-white/10 px-1.5 py-0.5 text-[10px] text-mist-500">${escapeHtml(it.period_key)}</span>`
+                    : '';
+                let relatedHtml = '';
+                if (related.length) {
+                    const panelId = `ev-${idx}`;
+                    relatedHtml = `
+                        <div class="mt-2 sm:ml-[7rem]">
+                            <button type="button" class="text-[11px] text-mist-400 hover:text-brass" data-event-toggle="${panelId}" aria-expanded="false">
+                                同事件 ${clusterN} · 官方 ${rc.official || 0} · 电话会 ${rc.transcript || 0} · 报道 ${rc.media || 0} ▾
+                            </button>
+                            <div id="${panelId}" class="mt-2 hidden space-y-1.5 border-l border-white/10 pl-3">
+                                ${related.map((rel, ri) => {
+                                    const rLink = rel.link || '';
+                                    const rIdx = calArticles.length;
+                                    calArticles.push(rel);
+                                    return `<div class="flex flex-wrap items-start justify-between gap-2 py-1">
+                                        <div class="min-w-0 flex-1">
+                                            <div class="mb-1">${kindBadge(rel)}</div>
+                                            <a class="text-xs leading-snug text-mist-300 hover:text-brass" href="${escapeHtml(rLink)}" target="_blank" rel="noopener noreferrer" data-open-link="${escapeHtml(rLink)}" data-reader-open="${escapeHtml(rLink)}">${escapeHtml(rel.title || '')}</a>
+                                            ${summaryBlock(rel.description, rIdx, '')}
+                                        </div>
+                                        <a class="shrink-0 rounded-md border border-white/10 px-2 py-1 text-[10px] text-mist-400 hover:text-brass" href="${escapeHtml(rLink)}" target="_blank" rel="noopener noreferrer" data-open-link="${escapeHtml(rLink)}">打开</a>
+                                    </div>`;
+                                }).join('')}
+                            </div>
+                        </div>`;
+                }
                 html += `
-                    <div class="rounded-xl px-2 py-2.5 transition hover:bg-white/[0.03] ${read ? 'opacity-45' : ''}">
+                    <div class="rounded-xl px-2 py-2.5 transition hover:bg-white/[0.03] ${read ? 'opacity-45' : ''} ${isOfficial ? 'ring-1 ring-brass/15' : ''}">
                         <div class="grid grid-cols-1 items-start gap-2 sm:grid-cols-[7rem_1fr_auto]">
-                            <div class="text-xs font-medium ${it.company ? 'text-brass' : 'text-mist-500'}">${escapeHtml(it.company || '—')}</div>
-                            <a class="text-sm leading-snug text-mist-100 hover:text-brass" href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer" data-open-link="${escapeHtml(link)}">${escapeHtml(it.title)}</a>
-                            <div class="flex gap-1.5">
+                            <div class="space-y-1">
+                                <div class="text-xs font-medium ${it.company ? 'text-brass' : 'text-mist-500'}">${escapeHtml(it.company || '—')}</div>
+                                ${kindBadge(it)}
+                                ${period}
+                            </div>
+                            <div>
+                                <a class="text-sm leading-snug text-mist-100 hover:text-brass" href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer" data-open-link="${escapeHtml(link)}">${escapeHtml(it.title)}</a>
+                                ${summaryBlock(it.description, idx, 'mt-1')}
+                            </div>
+                            <div class="flex flex-wrap gap-1.5">
+                                <a class="rounded-md border ${isOfficial ? 'border-brass/40 text-brass' : 'border-white/10 text-mist-300'} px-2 py-1 text-[11px] hover:border-brass/40 hover:text-brass" href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer" data-open-link="${escapeHtml(link)}">${openLabel}</a>
+                                ${ir}
                                 <button type="button" class="${actionBtn(later)}" data-later="${escapeHtml(link)}">稍后</button>
                                 <button type="button" class="${actionBtn(read)}" data-read="${escapeHtml(link)}">已读</button>
                             </div>
                         </div>
-                        ${summaryBlock(it.description, idx, 'sm:ml-[7rem]')}
+                        ${relatedHtml}
                     </div>`;
             });
             html += '</div></section>';
@@ -1489,6 +1611,16 @@
         });
         calendarBody.querySelectorAll('[data-read]').forEach(btn => {
             btn.addEventListener('click', () => { markRead(btn.dataset.read, !isRead(btn.dataset.read)); loadEarningsCalendar(); });
+        });
+        calendarBody.querySelectorAll('[data-event-toggle]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const panel = document.getElementById(btn.dataset.eventToggle);
+                if (!panel) return;
+                const open = panel.classList.contains('hidden');
+                panel.classList.toggle('hidden', !open);
+                btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+                btn.textContent = btn.textContent.replace(open ? '▾' : '▴', open ? '▴' : '▾');
+            });
         });
         bindReaderTriggers(calendarBody, calArticles);
     }

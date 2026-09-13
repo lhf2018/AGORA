@@ -5,7 +5,7 @@ import time
 import threading
 import concurrent.futures
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from html import unescape
 from urllib.parse import urlparse, parse_qs, unquote
@@ -28,6 +28,7 @@ from config import (
 import db
 import quality
 import earnings
+import filings
 
 app = Flask(__name__)
 app.config['CACHE_TYPE'] = 'SimpleCache'
@@ -40,6 +41,7 @@ HIGH_INTERVAL_MIN = 10
 NORMAL_INTERVAL_MIN = 30
 RETENTION_DAYS = 30
 SCHEDULER_TICK_SEC = 60
+FILINGS_INTERVAL_MIN = 360  # official filings every 6 hours
 
 BRIEFING_SECTIONS = [
     {'domain': 'geopolitics', 'label': '地缘', 'limit': 5},
@@ -327,6 +329,9 @@ def fetch_feed(feed_info):
                 'country': feed_info.get('country', '其他'),
                 'priority': feed_info.get('priority', 2),
                 'description': entry_summary(entry),
+                'link_kind': earnings.classify_link(link, source=feed_info.get('name', '')),
+                'filing_type': '',
+                'company_id': '',
             })
             if len(articles) >= 5:
                 break
@@ -423,6 +428,29 @@ def fetch_sources(feeds, mode='incremental'):
     return {'sources_ok': ok, 'sources_fail': fail, 'upserted': upserted}
 
 
+def run_filings_job(force=False):
+    """Pull official EDGAR / cninfo disclosures into the earnings feed."""
+    if not force:
+        last = db.get_meta('last_filings_fetched_at')
+        if last:
+            try:
+                last_dt = datetime.fromisoformat(last)
+                if datetime.utcnow() - last_dt < timedelta(minutes=FILINGS_INTERVAL_MIN):
+                    return {'skipped': True, 'upserted': 0}
+            except ValueError:
+                pass
+    try:
+        articles = filings.fetch_all_official_filings()
+        inserted, updated = db.upsert_articles(articles)
+        db.set_meta('last_filings_fetched_at', datetime.utcnow().isoformat())
+        cache.clear()
+        print(f"[filings] upsert inserted={inserted} updated={updated}")
+        return {'skipped': False, 'upserted': inserted + updated, 'count': len(articles)}
+    except Exception as e:
+        print(f'[filings] error: {type(e).__name__}: {e}')
+        return {'skipped': False, 'upserted': 0, 'error': str(e)}
+
+
 def run_fetch_job(mode='incremental', force_all=False):
     global _fetch_in_progress
     with _fetch_lock:
@@ -443,8 +471,10 @@ def run_fetch_job(mode='incremental', force_all=False):
             )
             if not feeds:
                 print('[incremental] 无到期源，跳过')
-                return True
-        fetch_sources(feeds, mode=mode)
+            else:
+                fetch_sources(feeds, mode=mode)
+        # Official filings on a slower cadence (also once after full/startup)
+        run_filings_job(force=(mode in ('full', 'startup') or force_all))
         return True
     finally:
         _fetch_in_progress = False
@@ -475,7 +505,8 @@ def start_scheduler():
     threading.Thread(target=scheduler_loop, daemon=True, name='agora-scheduler').start()
     print(
         f'定时增量已启动：高优每 {HIGH_INTERVAL_MIN} 分钟，'
-        f'普通每 {NORMAL_INTERVAL_MIN} 分钟'
+        f'普通每 {NORMAL_INTERVAL_MIN} 分钟；'
+        f'官方财报每 {FILINGS_INTERVAL_MIN} 分钟'
     )
 
 
@@ -681,10 +712,24 @@ def build_briefing(days=1):
     earnings_rows = [
         a for a in cards
         if (a.get('source_type') or '') == 'earnings'
-    ][:8]
+    ]
+    earnings_rows.sort(
+        key=lambda a: (
+            0 if (a.get('link_kind') == 'official' or a.get('filing_type')) else 1,
+            a.get('published_timestamp') or '',
+        )
+    )
+    earnings_rows = earnings_rows[:8]
     earnings_items = []
     for a in earnings_rows:
         co = earnings.detect_company(a.get('title') or '')
+        if not co and a.get('company_id'):
+            base = earnings.get_company(a.get('company_id'))
+            if base:
+                co = {'label': base['label']}
+        kind = a.get('link_kind') or earnings.classify_link(
+            a.get('link'), source=a.get('source') or '', filing_type=a.get('filing_type')
+        )
         earnings_items.append({
             'title': a.get('title'),
             'link': a.get('link'),
@@ -692,6 +737,9 @@ def build_briefing(days=1):
             'published': a.get('published'),
             'description': a.get('description') or '',
             'company': (co or {}).get('label') if co else None,
+            'link_kind': kind,
+            'link_kind_label': earnings.link_kind_label(kind),
+            'filing_type': a.get('filing_type') or '',
         })
 
     total_items = sum(s['count'] for s in sections)
@@ -851,6 +899,22 @@ def get_articles_status():
     })
 
 
+def stamp_link_meta(article):
+    """Ensure link_kind is set for API / UI consumers."""
+    if not article:
+        return article
+    kind = (article.get('link_kind') or '').strip()
+    if not kind:
+        kind = earnings.classify_link(
+            article.get('link'),
+            source=article.get('source') or '',
+            filing_type=article.get('filing_type'),
+        )
+        article['link_kind'] = kind
+    article['link_kind_label'] = earnings.link_kind_label(kind)
+    return article
+
+
 @app.route('/api/articles')
 def get_articles():
     page = request.args.get('page', 1, type=int)
@@ -939,6 +1003,9 @@ def get_articles():
             a['cluster_size'] = 1
             a['related'] = []
 
+    for a in page_items:
+        stamp_link_meta(a)
+
     return jsonify({
         'articles': page_items,
         'pagination': pagination,
@@ -964,13 +1031,17 @@ def earnings_calendar():
         except ValueError:
             days = 30
     company = (request.args.get('company') or '').strip()
+    kind = (request.args.get('kind') or 'all').strip().lower()
+    if kind not in ('all', 'official', 'transcript', 'media'):
+        kind = 'all'
+    aggregate = request.args.get('aggregate', '1') != '0'
     rows = db.query_articles(
         source_type='earnings',
         days=days,
         fetch_all=True,
-        limit=500,
+        limit=1000,
     )
-    cal = earnings.build_calendar(rows)
+    cal = earnings.build_calendar(rows, kind_filter=kind, aggregate=aggregate)
     if company:
         filtered = []
         for day in cal['days']:
@@ -983,11 +1054,20 @@ def earnings_calendar():
                 filtered.append({'date': day['date'], 'count': len(items), 'items': items})
         cal['days'] = filtered
         cal['total'] = sum(d['count'] for d in filtered)
+        # kind_counts 仍用全量，方便切换类型筛选；公司过滤只影响列表
     cal['days_filter'] = days if days else 'all'
     cal['company'] = company or 'all'
+    cal['kind'] = kind
+    cal['aggregate'] = bool(cal.get('aggregate', aggregate))
     cal['loading'] = False
     cal['fetching'] = _fetch_in_progress
     return jsonify(cal)
+
+
+@app.route('/api/filings/trigger', methods=['POST'])
+def trigger_filings():
+    result = run_filings_job(force=True)
+    return jsonify(result)
 
 
 @app.route('/api/feeds/health')
