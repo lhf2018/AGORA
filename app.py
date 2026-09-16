@@ -29,6 +29,7 @@ import db
 import quality
 import earnings
 import filings
+import cognition
 
 app = Flask(__name__)
 app.config['CACHE_TYPE'] = 'SimpleCache'
@@ -763,7 +764,7 @@ def briefing_window_label(days):
 def briefing_to_markdown(payload):
     """Render briefing payload as shareable Markdown."""
     days = payload.get('days') or 1
-    lines = [f"# Agora {briefing_window_label(days)}简报", '']
+    lines = [f"# Agora {briefing_window_label(days)}决策简报", '']
     gen = (payload.get('generated_at') or '')[:16].replace('T', ' ')
     meta = f"{payload.get('total_items', 0)} 条要点"
     if gen:
@@ -771,12 +772,34 @@ def briefing_to_markdown(payload):
     lines.append(f"> {meta}")
     lines.append('')
 
-    topics = payload.get('topics') or []
+    decision = payload.get('decision') or {}
+    sc = decision.get('signal_counts') or {}
+    if sc:
+        lines.append(
+            f"**信号分层** 事实 {sc.get('fact', 0)} · "
+            f"分析 {sc.get('analysis', 0)} · 叙事 {sc.get('narrative', 0)}"
+        )
+        lines.append('')
+    path_steps = decision.get('reading_path') or []
+    if path_steps:
+        lines.append('**阅读路径**')
+        for p in path_steps:
+            lines.append(f"- {p}")
+        lines.append('')
+
+    topics = payload.get('topics') or decision.get('topics') or []
     if topics:
         labels = ' · '.join(
-            f"{t.get('label')}({t.get('count')})" for t in topics[:8]
+            f"{t.get('label')}({t.get('count')})" if t.get('count') is not None
+            else f"{t.get('label')}"
+            for t in topics[:8]
         )
         lines.append(f"**热点议题** {labels}")
+        lines.append('')
+
+    fws = decision.get('frameworks') or []
+    if fws:
+        lines.append('**相关框架** ' + ' · '.join(f.get('label') for f in fws[:6]))
         lines.append('')
 
     earnings = payload.get('earnings') or []
@@ -789,10 +812,15 @@ def briefing_to_markdown(payload):
             title = (it.get('title') or '').replace('[', '\\[').replace(']', '\\]')
             link = it.get('link') or ''
             tail = f" — {src}" if src else ''
+            sig = it.get('signal_short') or ''
+            prefix = f"[{sig}] " if sig else ''
             if link:
-                lines.append(f"- {co}[{title}]({link}){tail}")
+                lines.append(f"- {prefix}{co}[{title}]({link}){tail}")
             else:
-                lines.append(f"- {co}{title}{tail}")
+                lines.append(f"- {prefix}{co}{title}{tail}")
+            why = (it.get('why_matters') or '').strip()
+            if why:
+                lines.append(f"  - **为何重要** {why}")
             desc = (it.get('description') or '').strip()
             if desc:
                 lines.append(f"  - {desc}")
@@ -808,14 +836,27 @@ def briefing_to_markdown(payload):
             cluster = ''
             if (it.get('cluster_size') or 1) > 1:
                 cluster = f" 〔同题 {it['cluster_size']}〕"
+            sig = it.get('signal_short') or ''
+            prefix = f"**{sig}** · " if sig else ''
             tail = f" — {src}{cluster}" if src or cluster else cluster
             if link:
-                lines.append(f"- [{title}]({link}){tail}")
+                lines.append(f"- {prefix}[{title}]({link}){tail}")
             else:
-                lines.append(f"- {title}{tail}")
+                lines.append(f"- {prefix}{title}{tail}")
+            why = (it.get('why_matters') or '').strip()
+            if why:
+                lines.append(f"  - **为何重要** {why}")
             desc = (it.get('description') or '').strip()
             if desc:
                 lines.append(f"  - {desc}")
+        lines.append('')
+
+    follow = decision.get('follow_ups') or []
+    if follow:
+        lines.append('## 建议跟进')
+        lines.append('')
+        for f in follow:
+            lines.append(f"- {f.get('label')}")
         lines.append('')
 
     lines.append('---')
@@ -823,28 +864,38 @@ def briefing_to_markdown(payload):
     return '\n'.join(lines).rstrip() + '\n'
 
 
+
 def get_briefing_payload(days=1):
-    """Shared loader for JSON / Markdown / share page."""
+    """Shared loader for JSON / Markdown / share page (decision mode)."""
     days = max(1, min(int(days or 1), 3))
     if db.article_count() == 0:
         return {
             'loading': True,
             'days': days,
+            'mode': 'decision',
             'sections': [],
             'topics': [],
             'earnings': [],
             'total_items': 0,
             'generated_at': datetime.utcnow().isoformat(),
+            'decision': {
+                'signal_counts': {'fact': 0, 'analysis': 0, 'narrative': 0},
+                'frameworks': [],
+                'topics': [],
+                'follow_ups': [],
+                'reading_path': [],
+            },
         }
-    cache_key = f'briefing:{days}'
+    cache_key = f'briefing_decision:{days}'
     payload = cache.get(cache_key)
     if payload is None:
-        payload = build_briefing(days=days)
+        payload = cognition.build_decision_briefing(build_briefing(days=days))
         cache.set(cache_key, payload, timeout=90)
     out = dict(payload)
     out['loading'] = False
     out['fetching'] = _fetch_in_progress
     out['window_label'] = briefing_window_label(days)
+    out['mode'] = 'decision'
     return out
 
 
@@ -900,7 +951,7 @@ def get_articles_status():
 
 
 def stamp_link_meta(article):
-    """Ensure link_kind is set for API / UI consumers."""
+    """Ensure link_kind / signal fields for API / UI consumers."""
     if not article:
         return article
     kind = (article.get('link_kind') or '').strip()
@@ -912,6 +963,7 @@ def stamp_link_meta(article):
         )
         article['link_kind'] = kind
     article['link_kind_label'] = earnings.link_kind_label(kind)
+    cognition.enrich_signal(article)
     return article
 
 
@@ -1101,6 +1153,104 @@ def get_topics():
         })
 
     payload = extract_topics(days=days, limit=limit)
+    payload['loading'] = False
+    return jsonify(payload)
+
+
+@app.route('/api/issues')
+def list_issues():
+    """Legacy alias → lenses (situation only)."""
+    days = request.args.get('days', 7, type=int)
+    days = max(1, min(days, 30))
+    limit = request.args.get('limit', 16, type=int)
+    limit = max(1, min(limit, 40))
+    if db.article_count() == 0:
+        return jsonify({'loading': True, 'days': days, 'topics': [], 'lenses': []})
+    rows = db.query_articles(days=days, fetch_all=True, limit=800)
+    payload = cognition.list_lenses(rows, days=days, kind='situation', limit=limit)
+    payload['loading'] = False
+    payload['topics'] = [
+        {k: v for k, v in item.items() if k not in ('kind', 'kind_label', 'summary')}
+        for item in payload.get('lenses') or []
+    ]
+    payload['signal_tiers'] = list(cognition.SIGNAL_TIERS.values())
+    return jsonify(payload)
+
+
+@app.route('/api/issues/<topic_id>')
+def issue_workbench(topic_id):
+    """Legacy alias → lens detail (situation)."""
+    days = request.args.get('days', 7, type=int)
+    days = max(1, min(days, 30))
+    rows = db.query_articles(days=days, fetch_all=True, limit=1000)
+    payload = cognition.build_lens_detail(topic_id, rows, days=days, kind='situation')
+    if not payload:
+        return jsonify({'ok': False, 'error': '未知议题'}), 404
+    payload['loading'] = False
+    return jsonify(payload)
+
+
+@app.route('/api/frameworks')
+def list_frameworks_api():
+    """Legacy alias → lenses (model only)."""
+    days = request.args.get('days', 14, type=int)
+    days = max(1, min(days, 60))
+    rows = db.query_articles(days=days, fetch_all=True, limit=800) if db.article_count() else []
+    payload = cognition.list_lenses(rows, days=days, kind='model')
+    payload['loading'] = False
+    payload['frameworks'] = payload.get('lenses') or []
+    payload['signal_tiers'] = list(cognition.SIGNAL_TIERS.values())
+    return jsonify(payload)
+
+
+@app.route('/api/frameworks/<fw_id>')
+def framework_detail(fw_id):
+    """Legacy alias → lens detail (model)."""
+    days = request.args.get('days', 14, type=int)
+    days = max(1, min(days, 60))
+    rows = db.query_articles(days=days, fetch_all=True, limit=1000)
+    payload = cognition.build_lens_detail(fw_id, rows, days=days, kind='model')
+    if not payload:
+        return jsonify({'ok': False, 'error': '未知框架'}), 404
+    payload['loading'] = False
+    return jsonify(payload)
+
+
+@app.route('/api/lenses')
+def list_lenses_api():
+    days = request.args.get('days', 14, type=int)
+    days = max(1, min(days, 60))
+    kind = (request.args.get('kind') or 'all').strip()
+    if kind not in ('all', 'situation', 'model'):
+        kind = 'all'
+    limit = request.args.get('limit', 40, type=int)
+    limit = max(1, min(limit, 60))
+    if db.article_count() == 0:
+        return jsonify({
+            'loading': True,
+            'days': days,
+            'kind': kind,
+            'kinds': list(cognition.LENS_KINDS.values()),
+            'lenses': [],
+        })
+    rows = db.query_articles(days=days, fetch_all=True, limit=1000)
+    payload = cognition.list_lenses(rows, days=days, kind=kind, limit=limit)
+    payload['loading'] = False
+    payload['signal_tiers'] = list(cognition.SIGNAL_TIERS.values())
+    return jsonify(payload)
+
+
+@app.route('/api/lenses/<lens_id>')
+def lens_detail_api(lens_id):
+    days = request.args.get('days', 14, type=int)
+    days = max(1, min(days, 60))
+    kind = (request.args.get('kind') or '').strip() or None
+    if kind and kind not in ('situation', 'model'):
+        kind = None
+    rows = db.query_articles(days=days, fetch_all=True, limit=1000)
+    payload = cognition.build_lens_detail(lens_id, rows, days=days, kind=kind)
+    if not payload:
+        return jsonify({'ok': False, 'error': '未知透镜'}), 404
     payload['loading'] = False
     return jsonify(payload)
 

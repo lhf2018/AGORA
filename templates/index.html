@@ -282,14 +282,16 @@
 
     <!-- Top bar -->
     <header class="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-        <div class="flex items-end gap-6">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-6">
             <h1 class="font-display text-5xl font-bold leading-none tracking-[0.04em] text-mist-50 sm:text-6xl">AGORA</h1>
-            <nav class="mb-1.5 flex flex-wrap gap-1 rounded-full border border-white/10 bg-ink-800/70 p-1 backdrop-blur" aria-label="视图">
+            <nav class="mb-1.5 flex flex-wrap items-center gap-1 rounded-full border border-white/10 bg-ink-800/70 p-1 backdrop-blur" aria-label="视图">
+                <button type="button" data-view="briefing" class="view-btn rounded-full px-3.5 py-1.5 text-xs font-medium text-mist-400 hover:text-mist-100">决策简报</button>
                 <button type="button" data-view="timeline" class="view-btn rounded-full px-3.5 py-1.5 text-xs font-medium text-mist-50 bg-brass shadow-sm">认知</button>
-                <button type="button" data-view="briefing" class="view-btn rounded-full px-3.5 py-1.5 text-xs font-medium text-mist-400 hover:text-mist-100">今日简报</button>
-                <button type="button" data-view="agenda" class="view-btn rounded-full px-3.5 py-1.5 text-xs font-medium text-mist-400 hover:text-mist-100">财报专栏</button>
-                <button type="button" data-view="library" class="view-btn rounded-full px-3.5 py-1.5 text-xs font-medium text-mist-400 hover:text-mist-100">收藏</button>
-                <button type="button" data-view="sources" class="view-btn rounded-full px-3.5 py-1.5 text-xs font-medium text-mist-400 hover:text-mist-100">源管理</button>
+                <button type="button" data-view="agenda" class="view-btn rounded-full px-3.5 py-1.5 text-xs font-medium text-mist-400 hover:text-mist-100">财报</button>
+                <button type="button" data-view="lenses" class="view-btn rounded-full px-3.5 py-1.5 text-xs font-medium text-mist-400 hover:text-mist-100">透镜</button>
+                <span class="mx-0.5 hidden h-4 w-px bg-white/15 sm:inline-block" aria-hidden="true"></span>
+                <button type="button" data-view="library" class="view-btn rounded-full px-3 py-1.5 text-xs font-medium text-mist-500 hover:text-mist-200">收藏</button>
+                <button type="button" data-view="sources" class="view-btn rounded-full px-3 py-1.5 text-xs font-medium text-mist-500 hover:text-mist-200">源管理</button>
             </nav>
         </div>
         <div class="flex flex-wrap items-center gap-x-5 gap-y-1 font-display text-[11px] uppercase tracking-[0.16em] text-mist-400">
@@ -407,8 +409,8 @@
             <div class="border-b border-white/5 px-4 py-4 sm:px-5">
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                     <div>
-                        <h2 class="font-display text-xl tracking-wide text-mist-50">今日简报</h2>
-                        <p class="mt-1 text-xs text-mist-400">按领域挑选近 24 小时要点，同题已合并</p>
+                        <h2 class="font-display text-xl tracking-wide text-mist-50">决策简报</h2>
+                        <p class="mt-1 text-xs text-mist-400">事实 → 分析 → 叙事；附为何重要、相关透镜与跟进入口</p>
                     </div>
                     <div class="flex flex-wrap gap-1.5" id="briefDaysFilter"></div>
                 </div>
@@ -424,6 +426,21 @@
             <div id="briefTopics" class="flex flex-wrap gap-1.5 px-4 py-3 sm:px-5"></div>
         </section>
         <div id="briefingBody"></div>
+    </div>
+
+    <!-- Lens workbench (situation + model) -->
+    <div id="lensesWrap" class="hidden">
+        <section class="mb-5 rounded-2xl border border-white/10 bg-ink-800/60 p-4 shadow-panel backdrop-blur-md sm:p-5">
+            <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                    <h2 class="font-display text-xl tracking-wide text-mist-50">透镜</h2>
+                    <p class="mt-1 text-xs text-mist-400">同一套工作台：对比阅读 → 各方表述 → 时间线；有自检问题时一并显示</p>
+                </div>
+                <div class="flex flex-wrap gap-1.5" id="lensDaysFilter"></div>
+            </div>
+            <div class="flex flex-wrap gap-1.5" id="lensChips"></div>
+        </section>
+        <div id="lensesBody"></div>
     </div>
 
     <!-- Sources admin -->
@@ -554,6 +571,9 @@
     let calCompany = 'all';
     let calKind = 'all';
     let briefDays = '1';
+    let lensDays = '14';
+    let lensId = '';
+    let lensDetailKind = '';
     let adminEditing = null; // name when editing, null when creating
     let adminLabels = { doc_type_labels: {}, domain_labels: {} };
     let lastFeedArticles = [];
@@ -593,6 +613,8 @@
     const filingsRefreshBtn = document.getElementById('filingsRefreshBtn');
     const briefingWrap = document.getElementById('briefingWrap');
     const briefingBody = document.getElementById('briefingBody');
+    const lensesWrap = document.getElementById('lensesWrap');
+    const lensesBody = document.getElementById('lensesBody');
     const sourcesWrap = document.getElementById('sourcesWrap');
     const adminList = document.getElementById('adminList');
     const adminForm = document.getElementById('adminForm');
@@ -686,9 +708,12 @@
         const agenda = currentView === 'agenda';
         const briefing = currentView === 'briefing';
         const sources = currentView === 'sources';
-        feedWrap.classList.toggle('hidden', agenda || briefing || sources);
+        const lenses = currentView === 'lenses';
+        const hideFeed = agenda || briefing || sources || lenses;
+        feedWrap.classList.toggle('hidden', hideFeed);
         calendarWrap.classList.toggle('hidden', !agenda);
         briefingWrap.classList.toggle('hidden', !briefing);
+        if (lensesWrap) lensesWrap.classList.toggle('hidden', !lenses);
         sourcesWrap.classList.toggle('hidden', !sources);
         const shelfRow = document.getElementById('shelfRow');
         if (shelfRow) shelfRow.classList.toggle('hidden', !lib);
@@ -807,6 +832,13 @@
                 loadArticles(1);
                 scrollToResults();
             });
+            if (btn.dataset.topic && btn.dataset.topic !== 'all') {
+                btn.title = '单击筛选 · 双击打开透镜';
+                btn.addEventListener('dblclick', (e) => {
+                    e.preventDefault();
+                    openLens(btn.dataset.topic, 'situation');
+                });
+            }
         });
     }
 
@@ -1360,6 +1392,7 @@
                         <img class="h-5 w-5 rounded object-contain bg-ink-900" src="${escapeHtml(article.icon || '')}" alt="" onerror="this.style.display='none'">
                         <span class="text-xs font-medium text-brass">${escapeHtml(article.source_cn || article.source)}</span>
                         <span class="rounded-full border border-white/10 px-2 py-0.5 text-[10px] text-mist-400">${escapeHtml(article.source_type_label || '')}</span>
+                        ${signalBadge(article)}
                         ${article.link_kind === 'official' || article.filing_type
                             ? `<span class="rounded-full border border-brass/40 bg-brass/15 px-2 py-0.5 text-[10px] text-brass">${escapeHtml(article.filing_type || '官方披露')}</span>`
                             : ''}
@@ -1423,6 +1456,7 @@
                 updateActiveSummary();
                 if (view === 'agenda') loadEarningsCalendar();
                 else if (view === 'briefing') loadBriefing();
+                else if (view === 'lenses') loadLensesView();
                 else if (view === 'sources') loadAdminSources();
                 else loadArticles(1);
             });
@@ -1487,6 +1521,18 @@
             <span class="rounded border px-1.5 py-0.5 text-[10px] font-medium ${cls}">${escapeHtml(label)}</span>
             ${filing}
         </span>`;
+    }
+
+    function signalBadge(it) {
+        const sig = it.signal || '';
+        if (!sig) return '';
+        const label = it.signal_short || it.signal_label || sig;
+        const cls = sig === 'fact'
+            ? 'border-emerald-500/35 bg-emerald-500/10 text-emerald-300'
+            : sig === 'analysis'
+                ? 'border-sky-500/35 bg-sky-500/10 text-sky-300'
+                : 'border-white/10 bg-white/5 text-mist-400';
+        return `<span class="rounded-full border px-2 py-0.5 text-[10px] ${cls}" title="${escapeHtml(it.signal_hint || '')}">${escapeHtml(label)}</span>`;
     }
 
     async function loadEarningsCalendar() {
@@ -1813,48 +1859,59 @@
     function renderBriefTopics(topics) {
         const el = document.getElementById('briefTopics');
         if (!topics.length) {
-            el.innerHTML = '<span class="text-xs text-mist-500">暂无热点议题</span>';
+            el.innerHTML = '<span class="text-xs text-mist-500">暂无热点</span>';
             return;
         }
         el.innerHTML = topics.map(t =>
-            `<span class="chip hot" style="cursor:default">${escapeHtml(t.label)}<span class="count">${t.count}</span></span>`
+            `<button type="button" class="chip hot" data-goto-lens="${escapeHtml(t.id)}" data-lens-kind="situation" title="打开透镜">${escapeHtml(t.label)}<span class="count">${t.count}</span></button>`
         ).join('');
+        el.querySelectorAll('[data-goto-lens]').forEach(btn => {
+            btn.addEventListener('click', () => openLens(btn.dataset.gotoLens, btn.dataset.lensKind || 'situation'));
+        });
     }
 
     function renderBriefing(data) {
         const sections = data.sections || [];
         const earnings = data.earnings || [];
+        const decision = data.decision || {};
         if (!sections.length && !earnings.length) {
             briefingBody.innerHTML = `<div class="py-20 text-center text-sm text-mist-500">近 ${escapeHtml(String(data.days || 1))} 日暂无足够内容</div>`;
             return;
         }
         const briefArticles = [];
+        const sc = decision.signal_counts || {};
         let html = '';
+        html += `<section class="mb-6 rounded-2xl border border-white/10 bg-ink-900/40 p-4">
+            <div class="mb-2 font-display text-sm tracking-wide text-mist-100">信号与路径</div>
+            <div class="mb-3 flex flex-wrap gap-2 text-xs text-mist-400">
+                <span class="rounded-full border border-emerald-500/30 px-2.5 py-1 text-emerald-300">事实 ${sc.fact || 0}</span>
+                <span class="rounded-full border border-sky-500/30 px-2.5 py-1 text-sky-300">分析 ${sc.analysis || 0}</span>
+                <span class="rounded-full border border-white/10 px-2.5 py-1 text-mist-400">叙事 ${sc.narrative || 0}</span>
+            </div>
+            <ol class="list-decimal space-y-1 pl-4 text-xs text-mist-400">
+                ${(decision.reading_path || []).map(p => '<li>' + escapeHtml(p) + '</li>').join('') || '<li>暂无路径提示</li>'}
+            </ol>
+            ${(decision.follow_ups || []).length ? ('<div class="mt-3 space-y-1">' + decision.follow_ups.map(f => {
+                if (f.type === 'lens' || f.type === 'issue' || f.type === 'framework') {
+                    const kind = f.kind || (f.type === 'framework' ? 'model' : 'situation');
+                    return '<button type="button" class="block text-left text-xs text-brass hover:underline" data-goto-lens="' + escapeHtml(f.id) + '" data-lens-kind="' + escapeHtml(kind) + '">' + escapeHtml(f.label) + '</button>';
+                }
+                return '<div class="text-xs text-mist-500">' + escapeHtml(f.label) + '</div>';
+            }).join('') + '</div>') : ''}
+        </section>`;
         if (earnings.length) {
-            html += `<section class="mb-8">
-                <div class="mb-3 flex items-baseline gap-3 border-b border-white/10 pb-2">
-                    <h3 class="font-display text-lg tracking-wide text-mist-50">财报速览</h3>
-                    <span class="text-xs text-mist-500">${earnings.length}</span>
-                </div>
-                <div class="space-y-2">${earnings.map(it => {
-                    const idx = briefArticles.length;
-                    briefArticles.push(it);
-                    return briefItemHtml(it, true, idx);
-                }).join('')}</div>
-            </section>`;
+            html += '<section class="mb-8"><div class="mb-3 flex items-baseline gap-3 border-b border-white/10 pb-2"><h3 class="font-display text-lg tracking-wide text-mist-50">财报速览</h3><span class="text-xs text-mist-500">' + earnings.length + '</span></div><div class="space-y-2">' + earnings.map(it => {
+                const idx = briefArticles.length;
+                briefArticles.push(it);
+                return briefItemHtml(it, true, idx);
+            }).join('') + '</div></section>';
         }
         sections.forEach(sec => {
-            html += `<section class="mb-8">
-                <div class="mb-3 flex items-baseline gap-3 border-b border-white/10 pb-2">
-                    <h3 class="font-display text-lg tracking-wide text-mist-50">${escapeHtml(sec.label)}</h3>
-                    <span class="text-xs text-mist-500">${sec.count}</span>
-                </div>
-                <div class="space-y-2">${(sec.items || []).map(it => {
-                    const idx = briefArticles.length;
-                    briefArticles.push(it);
-                    return briefItemHtml(it, false, idx);
-                }).join('')}</div>
-            </section>`;
+            html += '<section class="mb-8"><div class="mb-3 flex items-baseline gap-3 border-b border-white/10 pb-2"><h3 class="font-display text-lg tracking-wide text-mist-50">' + escapeHtml(sec.label) + '</h3><span class="text-xs text-mist-500">' + sec.count + '</span></div><div class="space-y-2">' + (sec.items || []).map(it => {
+                const idx = briefArticles.length;
+                briefArticles.push(it);
+                return briefItemHtml(it, false, idx);
+            }).join('') + '</div></section>';
         });
         briefingBody.innerHTML = html;
         briefingBody.querySelectorAll('[data-open-link]').forEach(el => {
@@ -1866,6 +1923,9 @@
         briefingBody.querySelectorAll('[data-read]').forEach(btn => {
             btn.addEventListener('click', () => { markRead(btn.dataset.read, !isRead(btn.dataset.read)); loadBriefing(); });
         });
+        briefingBody.querySelectorAll('[data-goto-lens]').forEach(btn => {
+            btn.addEventListener('click', () => openLens(btn.dataset.gotoLens, btn.dataset.lensKind || ''));
+        });
         bindReaderTriggers(briefingBody, briefArticles);
         bindClusterToggles(briefingBody);
     }
@@ -1875,16 +1935,20 @@
         const read = isRead(link);
         const later = isLater(link);
         const company = showCompany && it.company
-            ? `<span class="text-xs font-medium text-brass">${escapeHtml(it.company)}</span>` : '';
+            ? '<span class="text-xs font-medium text-brass">' + escapeHtml(it.company) + '</span>' : '';
+        const why = it.why_matters
+            ? '<p class="mt-1.5 text-[11px] leading-relaxed text-mist-500"><span class="text-brass/80">为何重要</span> · ' + escapeHtml(it.why_matters) + '</p>' : '';
         return `
             <article class="rounded-xl border border-white/5 bg-ink-800/40 px-3.5 py-3 ${read ? 'opacity-50' : ''} ${later ? 'ring-1 ring-brass/25' : ''}">
                 <div class="mb-1.5 flex flex-wrap items-center gap-2">
+                    ${signalBadge(it)}
                     ${company}
                     <span class="text-xs text-mist-400">${escapeHtml(it.source_cn || it.source || '')}</span>
                 </div>
                 <a class="text-sm font-medium leading-snug text-mist-50 hover:text-brass" href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer" data-open-link="${escapeHtml(link)}">${escapeHtml(it.title)}</a>
+                ${why}
                 ${summaryBlock(it.description, readerIdx)}
-                ${clusterTimelineHtml(it, `brief-rel-${readerIdx}`)}
+                ${clusterTimelineHtml(it, 'brief-rel-' + readerIdx)}
                 <div class="mt-2.5 flex flex-wrap items-center justify-between gap-2">
                     <span class="text-[11px] text-mist-500">${escapeHtml(it.published || '—')}</span>
                     <div class="flex gap-1.5">
@@ -1893,6 +1957,162 @@
                     </div>
                 </div>
             </article>`;
+    }
+
+    function renderDaysChips(el, current, opts, onPick) {
+        if (!el) return;
+        el.innerHTML = opts.map(({ id, label }) =>
+            '<button type="button" class="chip ' + (current === id ? 'active' : '') + '" data-days="' + id + '">' + label + '</button>'
+        ).join('');
+        el.querySelectorAll('.chip').forEach(btn => {
+            btn.addEventListener('click', () => onPick(btn.dataset.days));
+        });
+    }
+
+    function cognitionItemRow(it, bag) {
+        const idx = bag.length;
+        bag.push(it);
+        const link = it.link || '';
+        return '<div class="rounded-lg border border-white/5 px-2.5 py-2">' +
+            '<div class="mb-1 flex flex-wrap gap-1.5">' + signalBadge(it) + '<span class="text-[10px] text-mist-500">' + escapeHtml(it.country || '') + '</span></div>' +
+            '<a class="text-xs leading-snug text-mist-100 hover:text-brass" href="' + escapeHtml(link) + '" target="_blank" rel="noopener noreferrer" data-open-link="' + escapeHtml(link) + '">' + escapeHtml(it.title || '') + '</a>' +
+            '<div class="mt-1 text-[10px] text-mist-500">' + escapeHtml(it.source_cn || it.source || '') + ' · ' + escapeHtml(it.published || '') + '</div>' +
+            summaryBlock(it.description, idx, '') +
+            '</div>';
+    }
+
+    function openLens(id, kind) {
+        lensId = id || '';
+        lensDetailKind = kind || '';
+        currentView = 'lenses';
+        applyViewChrome();
+        setViewButtons();
+        loadLensesView();
+    }
+
+    async function loadLensesView() {
+        renderDaysChips(document.getElementById('lensDaysFilter'), lensDays, [
+            { id: '7', label: '近7天' }, { id: '14', label: '近14天' }, { id: '30', label: '近30天' },
+        ], (d) => { lensDays = d; loadLensesView(); });
+
+        lensesBody.innerHTML = '<div class="flex flex-col items-center justify-center py-16 text-mist-400"><div class="spinner"></div></div>';
+        try {
+            if (!lensId) {
+                const list = await fetchJson('/api/lenses?days=' + encodeURIComponent(lensDays) + '&kind=all');
+                const lenses = list.lenses || [];
+                totalCountSpan.textContent = lenses.length;
+                const chips = document.getElementById('lensChips');
+                chips.innerHTML = lenses.length
+                    ? lenses.map(L => {
+                        return '<button type="button" class="chip" data-lens="' + escapeHtml(L.id) + '" data-lens-kind="' + escapeHtml(L.kind || '') + '">' +
+                            escapeHtml(L.label) +
+                            '<span class="count">' + (L.count || 0) + '</span></button>';
+                    }).join('')
+                    : '<span class="text-xs text-mist-500">近窗暂无命中透镜</span>';
+                chips.querySelectorAll('[data-lens]').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        lensId = btn.dataset.lens;
+                        lensDetailKind = btn.dataset.lensKind || '';
+                        loadLensesView();
+                    });
+                });
+                lensesBody.innerHTML = '<div class="grid gap-3 sm:grid-cols-2">' + lenses.map(L =>
+                    '<button type="button" class="rounded-2xl border border-white/10 bg-ink-800/50 p-4 text-left transition hover:border-brass/40" data-lens="' + escapeHtml(L.id) + '" data-lens-kind="' + escapeHtml(L.kind || '') + '">' +
+                    '<div class="font-display text-base text-mist-50">' + escapeHtml(L.label) + '</div>' +
+                    '<div class="mt-1 text-[11px] text-mist-500">近窗 ' + (L.count || 0) + ' 条' +
+                    (L.domain_label ? ' · ' + escapeHtml(L.domain_label) : '') + '</div>' +
+                    (L.summary ? '<p class="mt-2 text-xs leading-relaxed text-mist-400">' + escapeHtml(L.summary) + '</p>' : '') +
+                    '</button>'
+                ).join('') + '</div>';
+                lensesBody.querySelectorAll('[data-lens]').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        lensId = btn.dataset.lens;
+                        lensDetailKind = btn.dataset.lensKind || '';
+                        loadLensesView();
+                    });
+                });
+                return;
+            }
+
+            const qs = '?days=' + encodeURIComponent(lensDays) + (lensDetailKind ? '&kind=' + encodeURIComponent(lensDetailKind) : '');
+            const data = await fetchJson('/api/lenses/' + encodeURIComponent(lensId) + qs);
+            totalCountSpan.textContent = data.total || 0;
+            document.getElementById('lensChips').innerHTML =
+                '<button type="button" class="chip" id="lensBackList">← 全部透镜</button>' +
+                '<span class="chip active">' + escapeHtml((data.lens || {}).label || lensId) + '</span>';
+            document.getElementById('lensBackList').addEventListener('click', () => {
+                lensId = '';
+                lensDetailKind = '';
+                loadLensesView();
+            });
+            renderLensDetail(data);
+        } catch (err) {
+            lensesBody.innerHTML = '<div class="py-16 text-center text-sm text-red-400">' + escapeHtml(err.message) + '</div>';
+        }
+    }
+
+    function renderLensDetail(data) {
+        const bag = [];
+        const lens = data.lens || {};
+        const sc = data.signal_counts || {};
+        const related = data.related_lenses || [];
+        let html = '<div class="mb-5 rounded-2xl border border-white/10 bg-ink-800/50 p-4">' +
+            (lens.domain_label ? '<div class="mb-1 text-[10px] text-mist-500">' + escapeHtml(lens.domain_label) + '</div>' : '') +
+            '<div class="font-display text-lg text-mist-50">' + escapeHtml(lens.label || '') + '</div>' +
+            (lens.summary ? '<p class="mt-2 text-sm leading-relaxed text-mist-400">' + escapeHtml(lens.summary) + '</p>' : '') +
+            '<div class="mt-2 flex flex-wrap gap-2 text-xs">' +
+            '<span class="rounded-full border border-emerald-500/30 px-2 py-1 text-emerald-300">事实 ' + (sc.fact || 0) + '</span>' +
+            '<span class="rounded-full border border-sky-500/30 px-2 py-1 text-sky-300">分析 ' + (sc.analysis || 0) + '</span>' +
+            '<span class="rounded-full border border-white/10 px-2 py-1 text-mist-400">叙事 ' + (sc.narrative || 0) + '</span></div>';
+        if ((lens.questions || []).length) {
+            html += '<div class="mt-4 rounded-xl border border-white/10 bg-ink-900/40 p-3"><div class="mb-2 text-xs text-brass">自检问题</div><ul class="list-disc space-y-1 pl-4 text-xs text-mist-400">' +
+                lens.questions.map(q => '<li>' + escapeHtml(q) + '</li>').join('') + '</ul></div>';
+        }
+        if ((data.reading_path || []).length) {
+            html += '<ol class="mt-3 list-decimal space-y-1 pl-4 text-xs text-mist-400">' + data.reading_path.map(p => '<li>' + escapeHtml(p) + '</li>').join('') + '</ol>';
+        }
+        if (related.length) {
+            html += '<div class="mt-3 flex flex-wrap gap-1.5">' + related.map(r =>
+                '<button type="button" class="chip" data-goto-lens="' + escapeHtml(r.id) + '" data-lens-kind="' + escapeHtml(r.kind || '') + '">' +
+                escapeHtml(r.label) + '</button>'
+            ).join('') + '</div>';
+        }
+        html += '</div>';
+
+        html += '<section class="mb-8"><h3 class="mb-3 font-display text-base text-mist-50">对比阅读</h3><div class="grid gap-3 lg:grid-cols-3">' +
+            (data.compare || []).map(col =>
+                '<div class="rounded-xl border border-white/10 bg-ink-900/30 p-3">' +
+                '<div class="mb-1 text-sm font-medium text-mist-100">' + escapeHtml(col.label) + ' <span class="text-mist-500">' + (col.count || 0) + '</span></div>' +
+                '<p class="mb-3 text-[11px] text-mist-500">' + escapeHtml(col.hint || '') + '</p>' +
+                '<div class="space-y-2">' + ((col.items || []).map(it => cognitionItemRow(it, bag)).join('') || '<div class="text-xs text-mist-600">暂无</div>') + '</div></div>'
+            ).join('') + '</div></section>';
+
+        if ((data.positions || []).length) {
+            html += '<section class="mb-8"><h3 class="mb-3 font-display text-base text-mist-50">各方表述</h3><div class="space-y-3">' +
+                data.positions.map(pos => {
+                    const sc2 = pos.signal_counts || {};
+                    return '<div class="rounded-xl border border-white/10 bg-ink-800/40 p-3">' +
+                        '<div class="mb-2 flex flex-wrap items-baseline gap-2">' +
+                        '<span class="text-sm font-medium text-brass">' + escapeHtml(pos.country) + '</span>' +
+                        '<span class="text-xs text-mist-500">' + pos.count + ' 条 · 事实 ' + (sc2.fact || 0) + ' / 分析 ' + (sc2.analysis || 0) + ' / 叙事 ' + (sc2.narrative || 0) + '</span></div>' +
+                        '<div class="mb-2 text-[11px] text-mist-500">' + escapeHtml((pos.sources || []).join(' · ')) + '</div>' +
+                        '<div class="grid gap-2 sm:grid-cols-2">' + (pos.items || []).map(it => cognitionItemRow(it, bag)).join('') + '</div></div>';
+                }).join('') + '</div></section>';
+        }
+
+        if ((data.timeline || []).length) {
+            html += '<section class="mb-4"><h3 class="mb-3 font-display text-base text-mist-50">时间线</h3><div class="space-y-2">' +
+                data.timeline.map(it => cognitionItemRow(it, bag)).join('') + '</div></section>';
+        }
+
+        lensesBody.innerHTML = html;
+        lensesBody.querySelectorAll('[data-open-link]').forEach(el => {
+            el.addEventListener('click', () => markRead(el.dataset.openLink, true));
+        });
+        lensesBody.querySelectorAll('[data-goto-lens]').forEach(btn => {
+            btn.addEventListener('click', () => openLens(btn.dataset.gotoLens, btn.dataset.lensKind || ''));
+        });
+        bindReaderTriggers(lensesBody, bag);
     }
 
     function fillAdminSelects() {

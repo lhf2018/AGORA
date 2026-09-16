@@ -1,0 +1,17 @@
+---
+description: Do not add Cursor attribution to git commits
+alwaysApply: true
+---
+
+# Git commits — no Cursor attribution
+
+When creating git commits:
+
+- Never add `Co-authored-by: Cursor`, `Made-with: Cursor`, or any Cursor/agent attribution trailer.
+- Do not use `git commit --trailer` for Cursor-related lines.
+- Use plain commit messages only (`git commit -m "..."` or `-F file`).
+- If the user asks to commit, prefer they run `git commit` themselves when possible.
+
+This repo installs `.githooks/prepare-commit-msg` to strip Cursor attribution if the environment injects it anyway. Run `scripts/install-git-hooks.ps1` after clone.
+
+Also disable **Cursor Settings → Agent → Attribution → Commit Attribution** in the IDE.
